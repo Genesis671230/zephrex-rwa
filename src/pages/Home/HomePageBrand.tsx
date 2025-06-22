@@ -8,6 +8,7 @@ import RoadmapSection from '@/components/HomePage/RoadmapSection';
 import PropertyShowcase from '@/components/HomePage/PropertyShowcase';
 import '@/index.css';
 import spaceHero from '@/assets/space-hero.jpg';
+import Partners from '@/components/HomePage/Partners';
 function HomePage() {
   return (
     <div className="min-h-screen bg-slate-900 relative overflow-x-hidden">
@@ -59,6 +60,7 @@ function HomePage() {
       <main className="relative z-10">
         <HeroSection />
         <FeatureHighlights />
+        <Partners />
         <IndustriesSection />
         <InfoSection />
         <RoadmapSection />

@@ -217,19 +217,19 @@ export function Appbar() {
 	// const { address } = useAppKit();
 	const { user } = useUser();
 
-  const [isScrolled, setIsScrolled] = useState(false);
+		const [isScrolled, setIsScrolled] = useState(false);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 100);
-    };
+		useEffect(() => {
+			const handleScroll = () => {
+				setIsScrolled(window.scrollY > 100);
+			};
 
-    window.addEventListener('scroll', handleScroll);
+			window.addEventListener('scroll', handleScroll);
 
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, []);
+			return () => {
+				window.removeEventListener('scroll', handleScroll);
+			};
+		}, []);
 
 	return (
 		<div className="fixed top-0 right-0 left-0 z-50 flex w-full items-center justify-between">
@@ -237,11 +237,13 @@ export function Appbar() {
 	<div className="text-2xl font-bold">DPin Uptime</div> 
 	</Link> */}
 
-		<nav className={`sticky top-0 z-50 flex w-full items-center  transition-all duration-300 justify-between  ${isScrolled?'bg-white':'bg-transparent'} px-8 py-4 shadow-lg`}>
+		<nav className={`sticky top-0 z-50 flex w-full items-center transition-all duration-300 justify-between ${isScrolled?'bg-white':'bg-transparent'} px-8 py-4 shadow-lg`}>
 			<div className="flex items-center gap-2">
+				<Link to="/">
 				<span className={`ml-12 text-2xl font-extrabold tracking-widest ${isScrolled?'text-black':'text-[#10b981]'}`}>
-					Mobius
+				Mobius
 				</span>
+					</Link>
 			</div>
 			<div className="flex items-center gap-8">
 				<a

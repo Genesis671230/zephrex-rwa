@@ -56,6 +56,9 @@ export default function HeroSection() {
     <section className="relative min-h-screen flex items-center justify-center px-4 py-20 overflow-hidden">
         <img src={spaceHero} alt="space hero" className='w-full h-full object-cover absolute top-0 left-0 z-10' />
 
+
+      
+
       {/* Advanced Background Effects */}
       <div className="absolute inset-0 animated-gradient" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(20,184,166,0.15),transparent_60%)]" />

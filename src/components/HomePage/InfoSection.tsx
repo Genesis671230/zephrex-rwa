@@ -75,7 +75,7 @@ export default function InfoSection() {
   };
 
   return (
-    <section className="py-20 px-4 relative overflow-hidden">
+    <section className="rounded-tl-[9rem] rounded-tr-[9rem] -mt-[2rem] py-20 px-4 relative overflow-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_70%)]" />
       

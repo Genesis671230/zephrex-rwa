@@ -72,7 +72,7 @@ export default function IndustriesSection() {
   };
 
   return (
-    <section className="rounded-t-4xl z-[100] rounded-tl-[4xl] rounded-tr-[4xl] bg-[#101620] -mt-[3rem] py-20 px-4 relative overflow-hidden">
+    <section className="rounded-tl-[9rem] rounded-tr-[9rem] -mt-[7rem] z-[100] bg-[#101620]  py-20 px-4 relative overflow-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(139,92,246,0.1),transparent_60%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(59,130,246,0.1),transparent_60%)]" />
