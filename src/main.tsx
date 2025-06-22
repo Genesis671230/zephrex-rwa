@@ -1,54 +1,25 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { createAppKit } from "@reown/appkit/react";
-import { WagmiProvider } from "wagmi";
-import { arbitrum, mainnet, AppKitNetwork } from "@reown/appkit/networks";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
+import { ClerkProvider } from '@clerk/clerk-react';
 
 import { initResponsive } from './lib/responsive.ts';
 import AppRouter from './AppRouter.tsx';
-import config from './config/index.ts';
 import './index.css';
+import { AppKitProvider } from './AppkitProvider.tsx';
 
 initResponsive();
 
-// 0. Setup queryClient
-const queryClient = new QueryClient();
-
-// 1. Get projectId from https://cloud.reown.com
-const projectId = config.WALLET_CONNECT_PROJECT_ID;
-
-// 2. Create a metadata object - optional
-const metadata = config.WALLET_CONNECT_METADATA;
-
-// 3. Set the networks
-const networks: [AppKitNetwork, ...AppKitNetwork[]] = [mainnet, arbitrum];
-
-// 4. Create Wagmi Adapter
-const wagmiAdapter = new WagmiAdapter({
-  networks,
-  projectId,
-  ssr: true,
-});
-
-// 5. Create modal
-createAppKit({
-  adapters: [wagmiAdapter],
-  networks,
-  projectId,
-  metadata,
-  features: {
-    analytics: true, // Optional - defaults to your Cloud configuration
-  },
-});
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '';
+// if (!PUBLISHABLE_KEY) {
+// throw new Error('Add your Clerk Publishable Key to the .env file')
+// }
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-     <WagmiProvider config={wagmiAdapter.wagmiConfig}>
-      <QueryClientProvider client={queryClient}>
+    <AppKitProvider>
+      <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
         <AppRouter />
-      </QueryClientProvider>
-    </WagmiProvider>
+      </ClerkProvider>
+    </AppKitProvider>
   </React.StrictMode>
 );

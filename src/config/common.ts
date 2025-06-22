@@ -1,5 +1,5 @@
 export default {
-  WALLET_CONNECT_PROJECT_ID: 'YOUR_PROJECT_ID', // Replace with your actual WalletConnect Project ID
+  WALLET_CONNECT_PROJECT_ID: '1234567890', // Replace with your actual WalletConnect Project ID
   WALLET_CONNECT_METADATA: {
     name: 'React Dapp Starter',
     description: 'React Dapp Starter Template',
