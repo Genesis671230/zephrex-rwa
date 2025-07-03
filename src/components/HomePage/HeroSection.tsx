@@ -93,16 +93,16 @@ export default function HeroSection() {
         <div className="text-center lg:text-left space-y-8">
 
           {/* AI Badge */}
-          <motion.div 
-            className="flex justify-center lg:justify-start"
+          {/* <motion.div 
+            className="flex mb-0 justify-center lg:justify-start"
             variants={itemVariants as any}
           >
-            <Badge className="glass-strong text-teal-300 border-teal-500/30 px-6 py-3 text-sm font-medium">
+            <Badge className="glass-strong text-teal-300 border-teal-500/30 px-6 mb-0 py-1 text-sm font-medium">
               <Bot className="h-4 w-4 mr-2" />
               AI Agents Powered by AWS Bedrock
               <Sparkles className="h-4 w-4 ml-2" />
             </Badge>
-          </motion.div>
+          </motion.div> */}
 
           {/* Main Heading */}
           <motion.div className="space-y-6" variants={itemVariants as any}>

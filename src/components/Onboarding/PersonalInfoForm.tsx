@@ -2,6 +2,7 @@ import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { countriesList } from '@/lib/utils';
 
 interface PersonalInfoData {
   firstName: string;
@@ -67,11 +68,11 @@ export const PersonalInfoForm: React.FC<PersonalInfoFormProps> = ({ data, onChan
               <SelectValue placeholder="Select nationality" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="US">United States</SelectItem>
-              <SelectItem value="GB">United Kingdom</SelectItem>
-              <SelectItem value="DE">Germany</SelectItem>
-              <SelectItem value="FR">France</SelectItem>
-              <SelectItem value="LU">Luxembourg</SelectItem>
+              {countriesList.map((country) => (
+                <SelectItem key={country.code} value={country.code}>
+                  {country.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

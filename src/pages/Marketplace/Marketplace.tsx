@@ -1,10 +1,11 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Layout } from '@/layout/Layout';
 import { Button } from '@/components/ui/button';
 import InvestmentCard from '@/components/ui/Investment-Card';
 import { motion } from 'framer-motion';
+import { getSTData } from '@/hooks/use-ST';
 
 const investmentOpportunities = [
 	{
@@ -97,10 +98,22 @@ const investmentOpportunities = [
 
 const Dashboard = () => {
 	const navigate = useNavigate();
-
+	const [securityTokens, setSecurityTokens] = useState([])
 	const handleDetailsClick = (symbol: string) => {
 		navigate(`/project/${symbol.toLowerCase()}`);
 	};
+
+const run =async () => { 
+	const stdata =  await getSTData()
+	console.log(stdata)
+	setSecurityTokens(stdata.content)
+	return stdata
+ }
+
+	useEffect(()=>{
+			const res=run() 
+			console.log(res)
+	},[])
 
 	return (
 		<Layout>
@@ -141,27 +154,38 @@ const Dashboard = () => {
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 0.6 }}
 		>
-			{investmentOpportunities.map((item, index) => (
-				<motion.div
-					key={index}
-					whileHover={{ scale: 1.03 }}
-					whileTap={{ scale: 0.98 }}
-					className="rounded-2xl shadow-xl overflow-hidden border border-gray-200"
-				>
-					{/* {investmentOpportunities.map((opportunity) => ( */}
-						<InvestmentCard
-							props={{
-								...item,
-								handleDetailsClick: () => handleDetailsClick(item.symbol)
 
-							}}
-							// key={opportunity.symbol}
-							// onDetailsClick={() => handleDetailsClick(opportunity.symbol)}
-							// {...opportunity}
-						/>
-					{/* ))} */}
-				</motion.div>
-				))} 
+			
+
+				{securityTokens?.map((item, index) => (
+  <motion.div
+    key={index}
+    whileHover={{ scale: 1.03 }}
+    whileTap={{ scale: 0.98 }}
+    className="rounded-2xl shadow-xl overflow-hidden border border-gray-200"
+  >
+    <InvestmentCard
+      props={{
+        name: item.name,
+        symbol: item.symbol,
+        type: "Token", // or item.type if available
+        status: "Open",
+        startDate: new Date(item.createdAt).toLocaleDateString(),
+        endDate: "N/A", // or a placeholder/fallback
+        description: item.description,
+        image: item.logo,
+        creators: [item.ownerAddress],
+        contractAddress: item.tokenAddress,
+        supply: item.modules?.data?.MaxBalanceModule?.[0] + " " + item.symbol,
+        purpose: item.objective,
+        claimsRequired: item.claimData?.data?.map(claim => claim.name) || [],
+        compliance: [], // Add if exists in the data
+        // handleDetailsClick: () => handleDetailsClick(item.symbol)
+      }}
+    />
+  </motion.div>
+))}
+
 				</motion.div>
 				</div>
 			{/* </div> */}

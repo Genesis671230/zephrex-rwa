@@ -13,12 +13,10 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-slate-900 relative overflow-x-hidden">
 
-      {/* Advanced Background Pattern */}
       <div className="fixed inset-0 animated-gradient" />
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.05),transparent_70%)]" />
       <div className="fixed inset-0 bg-[linear-gradient(to_right,rgba(59,130,246,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(59,130,246,0.02)_1px,transparent_1px)] bg-[size:4rem_4rem]" />
       
-      {/* Floating Geometric Elements */}
       <motion.div 
         className="fixed top-20 left-10 w-32 h-32 border border-teal-500/10 rounded-full"
         animate={{ 
@@ -53,10 +51,8 @@ function HomePage() {
         }}
       />
       
-      {/* Property Showcase Sidebar */}
       <PropertyShowcase />
       
-      {/* Main Content */}
       <main className="relative z-10">
         <HeroSection />
         <FeatureHighlights />
@@ -65,7 +61,6 @@ function HomePage() {
         <InfoSection />
         <RoadmapSection />
         
-        {/* Enhanced Footer */}
         <motion.footer 
           className="py-16 px-4 border-t border-white/10 relative overflow-hidden"
           initial={{ opacity: 0 }}
@@ -73,7 +68,6 @@ function HomePage() {
           transition={{ duration: 0.8 }}
           viewport={{ once: true }}
         >
-          {/* Footer Background */}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent" />
           
           <div className="max-w-7xl mx-auto text-center relative z-10">
@@ -93,7 +87,6 @@ function HomePage() {
               Your assets are protected by institutional-grade security measures and AI-powered monitoring
             </p>
             
-            {/* Footer Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
               {[
                 { label: "Assets Under Management", value: "$2.4B+" },

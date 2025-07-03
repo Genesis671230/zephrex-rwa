@@ -30,9 +30,13 @@ const QualificationAgreements = () => {
     navigate('/qualification/personal-info');
   };
 
+  const handleBack = () => {
+    navigate('/qualification/start-step');
+  };
+
   return (
     <Layout>
-      <div className="p-8 max-w-4xl mx-auto">
+      <div className="p-8  mx-auto">
         <div className="mb-8">
           <div className="flex items-center space-x-3 mb-6">
             <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center text-white text-sm font-bold">
@@ -114,7 +118,7 @@ const QualificationAgreements = () => {
           </div>
 
           <div className="flex justify-between">
-            <Button variant="outline">Save and close</Button>
+            <Button variant="outline" onClick={handleBack}>Back</Button>
             <Button 
               onClick={handleNext}
               disabled={!allAgreed}

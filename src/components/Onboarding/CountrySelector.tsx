@@ -1,16 +1,6 @@
 import React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-const countries = [
-  { code: 'US', name: 'United States' },
-  { code: 'GB', name: 'United Kingdom' },
-  { code: 'DE', name: 'Germany' },
-  { code: 'FR', name: 'France' },
-  { code: 'LU', name: 'Luxembourg' },
-  { code: 'CH', name: 'Switzerland' },
-  { code: 'AU', name: 'Australia' },
-  { code: 'CA', name: 'Canada' },
-];
+import { countriesList } from '@/lib/utils';
 
 interface CountrySelectorProps {
   value: string;
@@ -28,7 +18,7 @@ export const CountrySelector: React.FC<CountrySelectorProps> = ({ value, onChang
           <SelectValue placeholder="Select your country" />
         </SelectTrigger>
         <SelectContent>
-          {countries.map((country) => (
+          {countriesList.map((country) => (
             <SelectItem key={country.code} value={country.code}>
               {country.name}
             </SelectItem>

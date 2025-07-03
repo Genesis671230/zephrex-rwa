@@ -76,6 +76,7 @@ import { Button } from "./button";
 import { Badge } from "./badge";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const investments = [
   {
@@ -135,8 +136,12 @@ const investments = [
 
 const InvestmentCard = ({props}: {props: any}) => {
   const [selected, setSelected] = useState<any>(null);
-
+  const navigate = useNavigate();
   const item = props;
+
+  const handleDetailsClick = (symbol: string) => {
+    navigate(`/project/${symbol.toLowerCase()}`);
+  }
   return (
     // <motion.div
     //   className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 p-6"
@@ -192,7 +197,7 @@ const InvestmentCard = ({props}: {props: any}) => {
                   <strong>Compliance:</strong> {item.compliance.join(", ")}
                 </li>
               </ul>
-              <Button className="w-full mt-4" onClick={() => setSelected(item as any)}>
+              <Button className="w-full mt-4" onClick={() => handleDetailsClick(item?.symbol as any)}>
                 Get qualified and invest
               </Button>
             </CardContent>

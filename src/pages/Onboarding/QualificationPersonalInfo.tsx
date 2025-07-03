@@ -38,9 +38,13 @@ const QualificationPersonalInfo = () => {
     navigate('/qualification/wallet');
   };
 
+  const handleBack = () => {
+    navigate('/qualification/agreements');
+  };
+
   return (
     <Layout>
-      <div className="p-8 max-w-4xl mx-auto">
+      <div className="p-8  mx-auto">
         <div className="mb-8">
           <div className="flex items-center space-x-3 mb-6">
             <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center text-white text-sm font-bold">
@@ -70,7 +74,7 @@ const QualificationPersonalInfo = () => {
           <PersonalInfoForm data={personalData} onChange={handleDataChange} />
 
           <div className="flex justify-between mt-8">
-            <Button variant="outline">Save and close</Button>
+            <Button variant="outline" onClick={handleBack}>Back</Button>
             <Button onClick={handleNext} className="px-8">
               Next: Wallet address →
             </Button>

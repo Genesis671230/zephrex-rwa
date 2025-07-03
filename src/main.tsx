@@ -18,7 +18,7 @@ createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AppKitProvider>
       <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
-        <AppRouter />
+          <AppRouter />
       </ClerkProvider>
     </AppKitProvider>
   </React.StrictMode>

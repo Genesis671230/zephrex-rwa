@@ -1,17 +1,13 @@
-// Device breakpoints configuration
 export const DEVICE_BREAKPOINTS = {
-  MOBILE: 390, // mobile mockup width
+  MOBILE: 390,
   TABLET: 768,
-  DESKTOP: 1440, // desktop mockup width
+  DESKTOP: 1440,
   LARGE_DESKTOP: 2560,
 } as const;
 
-// Base font size (px)
 const BASE_FONT_SIZE = 16;
 
-/**
- * Calculate the ratio between current screen width and mockup width
- */
+
 const calculateScreenRatio = (): number => {
   const width = document.documentElement.clientWidth;
   const base =
@@ -19,7 +15,6 @@ const calculateScreenRatio = (): number => {
       ? DEVICE_BREAKPOINTS.MOBILE
       : DEVICE_BREAKPOINTS.DESKTOP;
 
-  // Keep 1:1 ratio for desktop within reasonable range
   if (
     width >= DEVICE_BREAKPOINTS.DESKTOP &&
     width <= DEVICE_BREAKPOINTS.LARGE_DESKTOP

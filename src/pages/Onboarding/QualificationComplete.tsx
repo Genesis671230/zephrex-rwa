@@ -14,7 +14,7 @@ const QualificationComplete = () => {
 
   return (
     <Layout>
-      <div className="p-8 max-w-2xl mx-auto">
+      <div className="p-8  mx-auto">
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-10 h-10 text-green-600" />

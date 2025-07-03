@@ -64,7 +64,6 @@ const navigate = useNavigate();
 
 	return (
 		<div className="min-h-screen bg-[#10131a] text-white  font-sans">
-			{/* Hero Section with Featured Asset */}
 			<section className="relative  pt-16 pb-24 px-6 md:px-0 flex flex-col items-center">
       <img src={spaceHero} alt="space hero" className='w-full h-full object-cover absolute top-0 left-0 z-10' />
 				<div className="max-w-4xl z-20 py-10 mr-auto relative h-full w-full text-center">
@@ -75,7 +74,6 @@ const navigate = useNavigate();
             AI Agents. Compliance. Global Access. Unlock the future of asset ownership across multiple industries.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
-            {/* <ConnectButton showBalance={false} /> */}
             {isConnected?
             <div>
               <p>Connected to {appKitAddress}</p>
@@ -86,13 +84,11 @@ const navigate = useNavigate();
           }
           </div>
         </div>
-        {/* Featured Asset Card */}
         <div className="absolute z-30 right-8 top-1/2 -translate-y-1/2 hidden lg:block">
           <FeaturedAssetCard />
         </div>
       </section>
 
-      {/* Horizontal Feature Cards */}
       <section className="w-full bg-[#181c23] py-10 flex flex-wrap justify-center gap-6 border-b border-[#23272f]">
         {[
           { icon: '💸', title: 'Low minimum investment' },
@@ -112,7 +108,6 @@ const navigate = useNavigate();
         ))}
       </section>
 
-      {/* Industry Grid */}
       <section id="industries" className="bg-[#181c23] py-20 border-t border-[#23272f]">
         <div className="container mx-auto px-6">
           <h2 className="text-3xl font-extrabold text-center mb-12">
@@ -126,7 +121,6 @@ const navigate = useNavigate();
         </div>
       </section>
 
-      {/* Platform Advantages (Grid) */}
       <section className="bg-[#10131a] py-20 border-t border-[#23272f]">
         <div className="container mx-auto px-6 grid md:grid-cols-2 gap-12">
           <AdvantageCard
@@ -148,7 +142,6 @@ const navigate = useNavigate();
         </div>
       </section>
 
-      {/* What is a Token? (Education) */}
       <section className="bg-[#10131a] py-20">
         <div className="container mx-auto px-6 flex flex-col md:flex-row items-center gap-12">
           <div className="flex-1">
@@ -162,7 +155,6 @@ const navigate = useNavigate();
         </div>
       </section>
 
-      {/* Compliance & Regulation */}
       <section className="bg-[#181c23] py-12 border-t border-[#23272f]">
         <div className="container mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="flex-1 flex flex-col gap-2">
@@ -180,7 +172,6 @@ const navigate = useNavigate();
         </div>
       </section>
 
-      {/* Call to Action */}
       <section className="bg-gradient-to-r from-[#10b981] to-[#f59e42] py-16">
         <div className="container mx-auto px-6 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-6 text-white">
@@ -198,7 +189,6 @@ const navigate = useNavigate();
 				</div>
 			</section>
 
-			{/* Footer */}
 			<footer className="bg-[#181c23] text-white py-12">
 				<div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center">
 					<div className="flex items-center space-x-2 mb-4 md:mb-0">

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { Menu } from 'lucide-react';
 import { motion } from 'framer-motion';
-
+import mobiusLogo from "../../assets/logo.svg"
 // import {
 // SignInButton,
 // SignUpButton,
@@ -240,40 +240,40 @@ export function Appbar() {
 		<nav className={`sticky top-0 z-50 flex w-full items-center transition-all duration-300 justify-between ${isScrolled?'bg-white':'bg-transparent'} px-8 py-4 shadow-lg`}>
 			<div className="flex items-center gap-2">
 				<Link to="/">
-				<span className={`ml-12 text-2xl font-extrabold tracking-widest ${isScrolled?'text-black':'text-[#10b981]'}`}>
-				Mobius
-				</span>
+				<span className={`flex ml-12 text-2xl font-extrabold tracking-widest ${isScrolled?'text-black':'text-[#10b981]'}`}>
+					<img src={mobiusLogo} alt="mobius" />
+					</span>
 					</Link>
 			</div>
 			<div className="flex items-center gap-8">
-				<a
+				<Link
 					id="tag"
-					href="#how-it-works"
+					to="/marketplace"
 					className={`text-base transition-all duration-300 font-medium ${isScrolled?'text-black':'text-white'} transition hover:text-[#10b981]`}
 				>
-					How it works
-				</a>
-				<a
+				Marketplace
+				</Link>
+				<Link
 					id="tag"
-					href="#industries"
+					to="/issuer/dashboard"
 					className={`text-base transition-all duration-300 font-medium ${isScrolled?'text-black':'text-white'} transition hover:text-[#10b981]`}
 				>
-					Industries
-				</a>
-				<a
+					Issue Token
+				</Link>
+				<Link
 					id="tag"
-					href="#faqs"
+					to="#faqs"
 					className={`text-base transition-all duration-300 font-medium ${isScrolled?'text-black':'text-white'} transition hover:text-[#10b981]`}
 				>
 					FAQs
-				</a>
-				<a
+				</Link>
+				{/* <Link
 					id="tag"
-					href="#media"
+					to="#media"
 					className={`text-base transition-all duration-300 font-medium ${isScrolled?'text-black':'text-white'} transition hover:text-[#10b981]`}
 				>
 					Media
-				</a>
+				</Link> */}
 			</div>
 			<div className="flex items-center gap-4">
 				<div>
@@ -302,12 +302,11 @@ export function Appbar() {
 					</SignedOut>
 					<SignedIn>
 						<UserButton />
-						<div>
+						{/* <div>
 							<p className={`font-semibold transition-all duration-300 ${isScrolled?'text-black':'text-white'}`}>
 								{user?.fullName || user?.username}
 							</p>
-							{/* <div className="text-xs text-gray-500">{address?.slice(0, 6)}...{address?.slice(-4)}</div> */}
-						</div>
+						</div> */}
 					</SignedIn>
 				</div>
 			</div>

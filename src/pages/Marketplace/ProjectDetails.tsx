@@ -51,7 +51,7 @@ const ProjectDetails = () => {
   }
 
   const handleQualifyClick = () => {
-    navigate('/qualification/start');
+navigate(`/qualification/kyc-enhanced/${id?.symbol}`)
   };
 
   return (

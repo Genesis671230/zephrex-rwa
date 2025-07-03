@@ -5,9 +5,9 @@ import { cn } from '@/lib/utils';
 
 const navigationItems = [
   { icon: TrendingUp, label: 'Invest', href: '/' },
-  { icon: Briefcase, label: 'Portfolio', href: '/portfolio' },
-  { icon: ShoppingCart, label: 'Orders', href: '/orders' },
-  { icon: ArrowLeftRight, label: 'Buy/Sell', href: '/trade' },
+  { icon: Briefcase, label: 'Portfolio', href: '/investor/portfolio' },
+  { icon: ShoppingCart, label: 'Orders', href: '/investor/orders' },
+  { icon: ArrowLeftRight, label: 'Buy/Sell', href: '/investor/trade' },
 ];
 
  const Sidebar = () => {
