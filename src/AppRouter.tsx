@@ -6,7 +6,7 @@ import Home from '@/pages/Home/Home';
 import Profile from '@/pages/Profile/Profile';
 import Header from '@/components/Header/Header';
 import { Toaster } from '@/components/ui/sonner';
-import IssuerDashboard from './pages/Dashboards/IssuerDashboard/IssuerDashboard';
+// import IssuerDashboard from './pages/Dashboards/IssuerDashboard/IssuerDashboard';
 import HomePage from './pages/Home/HomePageBrand';
 import Marketplace from './pages/Marketplace/Marketplace';
 import ProjectDetails from './components/TokenCard/ProjectDetails';
@@ -17,6 +17,11 @@ import InvestorPortfolio from './pages/Portfolios/InvestorPortfolio/InvestorPort
 import IssuerPortfolio from './pages/Portfolios/IssuerPortfolio/IssuerPortfolio';
 import EnhancedQualificationStep from './pages/Portfolios/InvestorPortfolio/EnhancedQualificationStep';
 import AdvancedInvestorPortfolio from './pages/Portfolios/InvestorPortfolio/AdvancedInvestorPortfolio';
+import ProfilePage from './pages/Dashboards/InvestorDashboard/ProfilePage';
+import AnalyticsPage from './pages/Dashboards/InvestorDashboard/Analytics';
+import CompliancePage from './pages/Dashboards/InvestorDashboard/CompliancePage';
+import DocumentsPage from './pages/Dashboards/InvestorDashboard/DocumentPage';
+import IssuerDashboard from './pages/Portfolios/IssuerPortfolio/IssuerDashboard';
 
 function AppRouter() {
   return (
@@ -35,9 +40,13 @@ function AppRouter() {
 
         <Route path="/investor/portfolio" element={<InvestorPortfolio />} />
         <Route path="/investor/dashboard" element={<AdvancedInvestorPortfolio />} />
-        <Route path="/issuer/portfolio" element={<IssuerPortfolio />} />
+        <Route path="/investor/profile" element={<ProfilePage />} />
+        <Route path="/investor/analytics" element={<AnalyticsPage />} />
+        <Route path="/investor/documents" element={<DocumentsPage />} />
+        <Route path="/investor/compliance" element={<CompliancePage />} />
 
-        <Route path="/issuer/dashboard" element={<IssuerDashboard />} />
+        {/* <Route path="/issuer/portfolio" element={<IssuerPortfolio />} /> */}
+        {/* <Route path="/issuer/dashboard" element={<IssuerDashboard />} /> */}
         <Route path="/setting" element={<Profile />} />
         <Route path="/history" element={<History />} />
         <Route path="*" element={<Navigate to="/" replace />} />

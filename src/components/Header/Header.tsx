@@ -249,21 +249,21 @@ export function Appbar() {
 				<Link
 					id="tag"
 					to="/marketplace"
-					className={`text-base transition-all duration-300 font-medium ${isScrolled?'text-black':'text-white'} transition hover:text-[#10b981]`}
+					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled?'text-white':'text-black'}  transition hover:text-[#10b981]`}
 				>
 				Marketplace
 				</Link>
 				<Link
 					id="tag"
 					to="/issuer/dashboard"
-					className={`text-base transition-all duration-300 font-medium ${isScrolled?'text-black':'text-white'} transition hover:text-[#10b981]`}
+					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled?'text-white':'text-black'}  transition hover:text-[#10b981]`}
 				>
 					Issue Token
 				</Link>
 				<Link
 					id="tag"
 					to="#faqs"
-					className={`text-base transition-all duration-300 font-medium ${isScrolled?'text-black':'text-white'} transition hover:text-[#10b981]`}
+					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled?'text-white':'text-black'}  transition hover:text-[#10b981]`}
 				>
 					FAQs
 				</Link>
@@ -298,7 +298,7 @@ export function Appbar() {
 				<div>
 					<SignedOut>
 						<SignInButton />
-						<SignUpButton />
+						{/* <SignUpButton /> */}
 					</SignedOut>
 					<SignedIn>
 						<UserButton />

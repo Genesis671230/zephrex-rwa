@@ -116,8 +116,8 @@ const run =async () => {
 	},[])
 
 	return (
-		<Layout>
-			<div className="p-8">
+		// <Layout>
+			<div className="p-8 bg-white pt-[10%]">
 				<div className="mb-8">
 					<h1 className="text-2xl font-bold text-gray-900 mb-2">Investment Opportunities</h1>
 					<p className="text-gray-600">
@@ -188,8 +188,7 @@ const run =async () => {
 
 				</motion.div>
 				</div>
-			{/* </div> */}
-		</Layout>
+
 	);
 };
 

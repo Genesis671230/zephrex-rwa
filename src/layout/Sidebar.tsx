@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 
 const navigationItems = [
   { icon: TrendingUp, label: 'Invest', href: '/' },
-  { icon: Briefcase, label: 'Portfolio', href: '/investor/portfolio' },
+  { icon: Briefcase, label: 'Portfolio', href: '/investor/dashboard' },
   { icon: ShoppingCart, label: 'Orders', href: '/investor/orders' },
   { icon: ArrowLeftRight, label: 'Buy/Sell', href: '/investor/trade' },
 ];
