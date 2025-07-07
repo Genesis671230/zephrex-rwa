@@ -77,7 +77,7 @@ const navigate = useNavigate();
             {isConnected?
             <div>
               <p>Connected to {appKitAddress}</p>
-              <Button onClick={() => navigate('/issuer/dashboard')}>Launch App</Button>
+              <Button onClick={() => navigate('/marketplace')}>Launch App</Button>
             </div>  
           :
           <Button onClick={() => open()}>Connect Wallet</Button>
@@ -181,7 +181,7 @@ const navigate = useNavigate();
             Let Mobius RWA's AI agents tokenize, monitor, and grow your assets—compliantly and autonomously. Start your journey today.
 					</p>
 					<button
-						onClick={() => navigate('/issuer/dashboard')}
+						onClick={() => navigate('/marketplace')}
 						className="px-10 py-4 bg-[#181c23] text-white rounded-xl text-xl font-bold shadow-lg hover:scale-105 transition transform duration-200 border-2 border-transparent hover:border-[#10b981] focus:outline-none focus:ring-4 focus:ring-[#10b981]/40"
 					>
 						Get Started

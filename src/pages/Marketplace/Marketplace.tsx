@@ -104,15 +104,15 @@ const Dashboard = () => {
 	};
 
 const run =async () => { 
-	const stdata =  await getSTData()
+	const stdata = await getSTData()
 	console.log(stdata)
 	setSecurityTokens(stdata.content)
 	return stdata
- }
+	}
 
 	useEffect(()=>{
-			const res=run() 
-			console.log(res)
+		const res=run() 
+		console.log(res)
 	},[])
 
 	return (
@@ -138,13 +138,7 @@ const run =async () => {
 					</div>
 				</div>
 
-				<div className="flex justify-center">
-					<Button variant="secondary" size="sm" className='bg-black hover:bg-sky-950 text-white'>
-						<Link to="/issuer/dashboard" className='text-white'>
-				    Tokenize Asset
-					</Link>
-					</Button>
-				</div>
+				
 
 
 				{/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"> */}
@@ -155,39 +149,39 @@ const run =async () => {
 			transition={{ duration: 0.6 }}
 		>
 
-			
 
-				{securityTokens?.map((item, index) => (
-  <motion.div
-    key={index}
-    whileHover={{ scale: 1.03 }}
-    whileTap={{ scale: 0.98 }}
-    className="rounded-2xl shadow-xl overflow-hidden border border-gray-200"
-  >
-    <InvestmentCard
-      props={{
-        name: item.name,
-        symbol: item.symbol,
-        type: "Token", // or item.type if available
-        status: "Open",
-        startDate: new Date(item.createdAt).toLocaleDateString(),
-        endDate: "N/A", // or a placeholder/fallback
-        description: item.description,
-        image: item.logo,
-        creators: [item.ownerAddress],
-        contractAddress: item.tokenAddress,
-        supply: item.modules?.data?.MaxBalanceModule?.[0] + " " + item.symbol,
-        purpose: item.objective,
-        claimsRequired: item.claimData?.data?.map(claim => claim.name) || [],
-        compliance: [], // Add if exists in the data
-        // handleDetailsClick: () => handleDetailsClick(item.symbol)
-      }}
-    />
-  </motion.div>
+
+			{securityTokens?.map((item, index) => (
+		<motion.div
+			key={index}
+			whileHover={{ scale: 1.03 }}
+			whileTap={{ scale: 0.98 }}
+			className="rounded-2xl shadow-xl overflow-hidden border border-gray-200"
+		>
+			<InvestmentCard
+				props={{
+					name: item.name,
+					symbol: item.symbol,
+					type: "Token", // or item.type if available
+					status: "Open",
+					startDate: new Date(item.createdAt).toLocaleDateString(),
+					endDate: "N/A", // or a placeholder/fallback
+					description: item.description,
+					image:  `https://source.unsplash.com/random/?crypto`,
+					creators: [item.ownerAddress],
+					contractAddress: item.tokenAddress,
+					supply: item.modules?.data?.MaxBalanceModule?.[0] + " " + item.symbol,
+					purpose: item.objective,
+					claimsRequired: item.claimData?.data?.map(claim => claim.name) || [],
+					compliance: [], // Add if exists in the data
+					// handleDetailsClick: () => handleDetailsClick(item.symbol)
+				}}
+			/>
+		</motion.div>
 ))}
 
-				</motion.div>
-				</div>
+	</motion.div>
+	</div>
 
 	);
 };

@@ -6,7 +6,6 @@ import { combineReducers } from "@reduxjs/toolkit"
 import authSlice from "./slices/authSlice"
 import investorSlice from "./slices/investorSlice"
 import portfolioSlice from "./slices/portfolioSlice"
-import issuerSlice from "./slices/issuerSlice"
 import complianceSlice from "./slices/complianceSlice"
 
 const persistConfig = {
@@ -19,7 +18,6 @@ const rootReducer = combineReducers({
   auth: authSlice,
   investor: investorSlice,
   portfolio: portfolioSlice,
-  issuer: issuerSlice,
   compliance: complianceSlice,
 })
 

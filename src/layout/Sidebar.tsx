@@ -4,18 +4,15 @@ import { TrendingUp, Briefcase, ShoppingCart, ArrowLeftRight } from 'lucide-reac
 import { cn } from '@/lib/utils';
 
 const navigationItems = [
-  { icon: TrendingUp, label: 'Invest', href: '/' },
   { icon: Briefcase, label: 'Portfolio', href: '/investor/dashboard' },
-  { icon: ShoppingCart, label: 'Orders', href: '/investor/orders' },
-  { icon: ArrowLeftRight, label: 'Buy/Sell', href: '/investor/trade' },
 ];
 
  const Sidebar = () => {
   return (
-    <div className="w-64 bg-white border-r border-gray-200 min-h-screen">
-      <div className="p-6">
+    <div className="w-64  bg-white border-r border-gray-200 min-h-screen">
+      {/* <div className="p-6">
         <div className="text-xl font-bold text-gray-900">YOUR LOGO</div>
-      </div>
+      </div> */}
       
       <nav className="mt-8">
         {navigationItems.map((item) => (

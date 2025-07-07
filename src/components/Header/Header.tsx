@@ -41,7 +41,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useResponsive } from '@/hooks/useResponsive';
-import { useAppKit } from '@reown/appkit/react';
+import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 
 const navigation = [
 	{
@@ -214,7 +214,8 @@ export default function Header() {
 }
 
 export function Appbar() {
-	// const { address } = useAppKit();
+	const { allAccounts,address, isConnected, caipAddress, status, embeddedWalletInfo } =
+	useAppKitAccount();	
 	const { user } = useUser();
 
 		const [isScrolled, setIsScrolled] = useState(false);
@@ -237,7 +238,7 @@ export function Appbar() {
 	<div className="text-2xl font-bold">DPin Uptime</div> 
 	</Link> */}
 
-		<nav className={`sticky top-0 z-50 flex w-full items-center transition-all duration-300 justify-between ${isScrolled?'bg-white':'bg-transparent'} px-8 py-4 shadow-lg`}>
+		<nav className={`sticky top-0 z-50 flex w-full items-center transition-all duration-300 justify-between ${isScrolled ?'bg-white': window.location.pathname=="/" ?'bg-transparent':'bg-white'} px-8 py-4 shadow-lg`}>
 			<div className="flex items-center gap-2">
 				<Link to="/">
 				<span className={`flex ml-12 text-2xl font-extrabold tracking-widest ${isScrolled?'text-black':'text-[#10b981]'}`}>
@@ -249,24 +250,26 @@ export function Appbar() {
 				<Link
 					id="tag"
 					to="/marketplace"
-					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled?'text-white':'text-black'}  transition hover:text-[#10b981]`}
+					className={`text-base transition-all duration-300 font-medium  ${isScrolled ?'text-black':window.location.pathname=="/" ?'text-white':'text-black'}  transition hover:text-[#10b981]`}
 				>
 				Marketplace
+
+
 				</Link>
 				<Link
 					id="tag"
-					to="/issuer/dashboard"
-					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled?'text-white':'text-black'}  transition hover:text-[#10b981]`}
+					to="/investor/dashboard"
+					className={`text-base transition-all duration-300 font-medium  ${isScrolled ?'text-black':window.location.pathname=="/" ?'text-white':'text-black'}  transition hover:text-[#10b981]`}
 				>
-					Issue Token
+					 Dashboard
 				</Link>
-				<Link
+				{/* <Link
 					id="tag"
 					to="#faqs"
-					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled?'text-white':'text-black'}  transition hover:text-[#10b981]`}
+					className={`text-base transition-all duration-300 font-medium  ${isScrolled ?'text-black':window.location.pathname=="/" ?'text-white':'text-black'}  transition hover:text-[#10b981]`}
 				>
 					FAQs
-				</Link>
+				</Link> */}
 				{/* <Link
 					id="tag"
 					to="#media"
@@ -289,7 +292,7 @@ export function Appbar() {
 									{/* {user?.fullName || user?.username} */}
 								</p>
 								<p id="tag" className={`text-xs transition-all duration-300 ${isScrolled?'text-black':'text-white'}`}>
-									{/* {address?.slice(0, 6)}...{address?.slice(-4)} */}
+									{address?.slice(0, 6)}...{address?.slice(-4)}
 								</p>
 							</div>
 						</div>
