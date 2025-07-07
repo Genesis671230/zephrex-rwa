@@ -45,8 +45,8 @@ function AppRouter() {
         <Route path="/investor/documents" element={<DocumentsPage />} />
         <Route path="/investor/compliance" element={<CompliancePage />} />
 
-        {/* <Route path="/issuer/portfolio" element={<IssuerPortfolio />} /> */}
-        {/* <Route path="/issuer/dashboard" element={<IssuerDashboard />} /> */}
+        <Route path="/issuer/portfolio" element={<IssuerPortfolio />} />
+        <Route path="/issuer/dashboard" element={<IssuerDashboard />} />
         <Route path="/setting" element={<Profile />} />
         <Route path="/history" element={<History />} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -237,7 +237,7 @@ export function Appbar() {
 	<div className="text-2xl font-bold">DPin Uptime</div> 
 	</Link> */}
 
-		<nav className={`sticky top-0 z-50 flex w-full items-center transition-all duration-300 justify-between ${isScrolled?'bg-white':'bg-transparent'} px-8 py-4 shadow-lg`}>
+		<nav className={`sticky top-0 z-50 flex w-full items-center transition-all duration-300 justify-between ${isScrolled?'bg-white': window.location.pathname=="/" ?'bg-transparent':'bg-white'} px-8 py-4 shadow-lg`}>
 			<div className="flex items-center gap-2">
 				<Link to="/">
 				<span className={`flex ml-12 text-2xl font-extrabold tracking-widest ${isScrolled?'text-black':'text-[#10b981]'}`}>
@@ -249,28 +249,28 @@ export function Appbar() {
 				<Link
 					id="tag"
 					to="/marketplace"
-					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled?'text-white':'text-black'}  transition hover:text-[#10b981]`}
+					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled && window.location.pathname=="/" ?'text-white':'text-black'}  transition hover:text-[#10b981]`}
 				>
-				Marketplace
+					Marketplace
 				</Link>
 				<Link
 					id="tag"
 					to="/issuer/dashboard"
-					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled?'text-white':'text-black'}  transition hover:text-[#10b981]`}
+					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled && window.location.pathname=="/" ?'text-white':'text-black'}  transition hover:text-[#10b981]`}
 				>
 					Issue Token
 				</Link>
-				<Link
+				{/* <Link
 					id="tag"
 					to="#faqs"
-					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled?'text-white':'text-black'}  transition hover:text-[#10b981]`}
+					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled && window.location.pathname=="/" ?'text-white':'text-black'}  transition hover:text-[#10b981]`}
 				>
 					FAQs
-				</Link>
+				</Link> */}
 				{/* <Link
 					id="tag"
 					to="#media"
-					className={`text-base transition-all duration-300 font-medium ${isScrolled?'text-black':'text-white'} transition hover:text-[#10b981]`}
+					className={`text-base transition-all duration-300 font-medium ${isScrolled && window.location.pathname=="/" ?'text-black':'text-white'} transition hover:text-[#10b981]`}
 				>
 					Media
 				</Link> */}
