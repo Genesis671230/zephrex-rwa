@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
-import { Menu } from 'lucide-react';
+import { Menu, Wallet } from 'lucide-react';
 import { motion } from 'framer-motion';
 import mobiusLogo from "../../assets/logo.svg"
 // import {
@@ -41,7 +41,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useResponsive } from '@/hooks/useResponsive';
-import { useAppKit } from '@reown/appkit/react';
+import { useAppKit, useAppKitAccount } from '@reown/appkit/react';
 
 const navigation = [
 	{
@@ -214,7 +214,8 @@ export default function Header() {
 }
 
 export function Appbar() {
-	// const { address } = useAppKit();
+	const { open } = useAppKit();
+	const {address} = useAppKitAccount()
 	const { user } = useUser();
 
 		const [isScrolled, setIsScrolled] = useState(false);
@@ -249,21 +250,21 @@ export function Appbar() {
 				<Link
 					id="tag"
 					to="/marketplace"
-					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled && window.location.pathname=="/" ?'text-white':'text-black'}  transition hover:text-[#10b981]`}
+					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled && window.location.pathname=="/" ?'text-white':'text-black'} transition hover:text-[#10b981]`}
 				>
 					Marketplace
 				</Link>
 				<Link
 					id="tag"
 					to="/issuer/dashboard"
-					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled && window.location.pathname=="/" ?'text-white':'text-black'}  transition hover:text-[#10b981]`}
+					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled && window.location.pathname=="/" ?'text-white':'text-black'} transition hover:text-[#10b981]`}
 				>
 					Issue Token
 				</Link>
 				{/* <Link
 					id="tag"
 					to="#faqs"
-					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled && window.location.pathname=="/" ?'text-white':'text-black'}  transition hover:text-[#10b981]`}
+					className={`text-base transition-all duration-300 font-medium text-black ${!isScrolled && window.location.pathname=="/" ?'text-white':'text-black'} transition hover:text-[#10b981]`}
 				>
 					FAQs
 				</Link> */}
@@ -277,10 +278,110 @@ export function Appbar() {
 			</div>
 			<div className="flex items-center gap-4">
 				<div>
-					<SignedOut>
-						<SignInButton />
-						<SignUpButton />
-					</SignedOut>
+
+{address ? (
+					<motion.div 
+						className="group relative overflow-hidden"
+						whileHover={{ scale: 1.02 }}
+						whileTap={{ scale: 0.98 }}
+						transition={{ duration: 0.2, ease: "easeOut" }}
+					>
+						{/* Background with gradient border */}
+						<div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-cyan-500/20 rounded-2xl blur-sm group-hover:blur-none transition-all duration-300" />
+						<div className="relative flex items-center gap-3 px-5 py-3 glass-strong rounded-2xl border border-emerald-500/30 group-hover:border-emerald-400/50 transition-all duration-300">
+							{/* Status indicator */}
+							<div className="flex items-center gap-2">
+								<div className="relative">
+									<motion.div 
+										className="w-3 h-3 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full shadow-lg shadow-emerald-400/50"
+										animate={{ 
+											scale: [1, 1.1, 1],
+											boxShadow: [
+												"0 0 0 0 rgba(52, 211, 153, 0.4)",
+												"0 0 0 8px rgba(52, 211, 153, 0)",
+												"0 0 0 0 rgba(52, 211, 153, 0)"
+											]
+										}}
+										transition={{ duration: 2, repeat: Infinity }}
+									/>
+									<div className="absolute inset-0 w-3 h-3 bg-emerald-400 rounded-full animate-ping opacity-20" />
+								</div>
+								<Wallet className="h-5 w-5 text-emerald-400 group-hover:text-emerald-300 transition-colors duration-200" />
+							</div>
+							
+							{/* Address display */}
+							<div className="flex flex-col">
+								<span className="text-xs text-emerald-300/80 font-medium">Connected</span>
+								<motion.span 
+									className="text-sm font-mono text-white group-hover:text-emerald-100 transition-colors duration-200 select-all cursor-pointer"
+									whileHover={{ letterSpacing: "0.05em" }}
+									transition={{ duration: 0.15 }}
+								>
+									{address?.slice(0, 6)}...{address?.slice(-4)}
+								</motion.span>
+							</div>
+							
+							{/* Copy indicator */}
+							<motion.div
+								className="w-2 h-2 bg-white/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+								animate={{ 
+									rotate: [0, 360],
+								}}
+								transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+							/>
+						</div>
+					</motion.div>
+				) : (
+					<motion.button
+						onClick={() => open()}
+						className="group relative overflow-hidden"
+						whileHover={{ scale: 1.05 }}
+						whileTap={{ scale: 0.95 }}
+						transition={{ duration: 0.2, ease: "easeOut" }}
+					>
+						{/* Background with gradient border */}
+						<div className="absolute inset-0 bg-gradient-to-r from-rose-500/20 via-orange-500/20 to-amber-500/20 rounded-2xl blur-sm group-hover:blur-none transition-all duration-300" />
+						<div className="relative flex items-center gap-3 px-5 py-3 glass-strong rounded-2xl border border-rose-500/30 group-hover:border-rose-400/50 transition-all duration-300">
+							{/* Status indicator */}
+							<div className="flex items-center gap-2">
+								<div className="relative">
+									<motion.div 
+										className="w-3 h-3 bg-gradient-to-r from-rose-400 to-orange-400 rounded-full shadow-lg shadow-rose-400/50"
+										animate={{ 
+											scale: [1, 1.1, 1],
+											boxShadow: [
+												"0 0 0 0 rgba(244, 63, 94, 0.4)",
+												"0 0 0 8px rgba(244, 63, 94, 0)",
+												"0 0 0 0 rgba(244, 63, 94, 0)"
+											]
+										}}
+										transition={{ duration: 2, repeat: Infinity }}
+									/>
+									<div className="absolute inset-0 w-3 h-3 bg-rose-400 rounded-full animate-ping opacity-20" />
+								</div>
+								<Wallet className="h-5 w-5 text-rose-400 group-hover:text-rose-300 transition-colors duration-200" />
+							</div>
+							
+							{/* Connect prompt */}
+							<div className="flex flex-col">
+								<span className="text-xs text-rose-300/80 font-medium">Disconnected</span>
+								<span className="text-sm font-semibold text-white group-hover:text-rose-100 transition-colors duration-200">
+									Connect Wallet
+								</span>
+							</div>
+							
+							{/* Connect indicator */}
+							<motion.div
+								className="w-2 h-2 bg-gradient-to-r from-rose-400 to-orange-400 rounded-full"
+								animate={{ 
+									scale: [1, 1.2, 1],
+									opacity: [0.5, 1, 0.5]
+								}}
+								transition={{ duration: 1.5, repeat: Infinity }}
+							/>
+						</div>
+					</motion.button>
+				)}
 					<SignedIn>
 						<div className="flex gap-2">
 							{/* <UserButton /> */}

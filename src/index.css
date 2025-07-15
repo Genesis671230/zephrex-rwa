@@ -270,3 +270,145 @@ body {
     --radius: 0.75rem;
   }
 }
+
+/* Enhanced Glass Effects */
+.glass-premium {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 8px 32px 0 rgba(31, 38, 135, 0.37),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+.glass-ultra {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Wallet Connection Animations */
+@keyframes statusGlow {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.4);
+  }
+  50% { 
+    box-shadow: 0 0 0 10px rgba(52, 211, 153, 0);
+  }
+}
+
+@keyframes disconnectedGlow {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4);
+  }
+  50% { 
+    box-shadow: 0 0 0 10px rgba(244, 63, 94, 0);
+  }
+}
+
+.status-glow {
+  animation: statusGlow 2s ease-in-out infinite;
+}
+
+.disconnected-glow {
+  animation: disconnectedGlow 2s ease-in-out infinite;
+}
+
+/* Property Card Animations */
+@keyframes cardFloat {
+  0%, 100% { 
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% { 
+    transform: translateY(-5px) rotate(0.5deg);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.card-float {
+  animation: cardFloat 6s ease-in-out infinite;
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Hover Effects */
+.hover-lift {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* Enhanced Gradient Text Effects */
+.gradient-text-premium {
+  background: linear-gradient(
+    135deg,
+    #06b6d4 0%,
+    #10b981 25%,
+    #3b82f6 50%,
+    #8b5cf6 75%,
+    #ec4899 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 3s ease infinite;
+}
+
+/* Connection Status Indicators */
+.connection-indicator {
+  position: relative;
+  overflow: hidden;
+}
+
+.connection-indicator::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.connection-indicator:hover::before {
+  left: 100%;
+}
+
+/* Enhanced Blur Effects */
+.blur-ethereal {
+  backdrop-filter: blur(20px) hue-rotate(15deg) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) hue-rotate(15deg) saturate(150%);
+}

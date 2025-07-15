@@ -4,8 +4,8 @@ import { countriesList } from '../lib/utils';
 import { getSTData } from '@/hooks/use-ST';
 
 const pinata = new PinataSDK({
-  pinataJwt: import.meta.env.VITE_SERVER_URL,
-  pinataGateway: import.meta.env.VITE_GATEWAY_URL,
+  pinataJwt: import.meta.env.VITE_PINIATE_SERVER_URL,
+  pinataGateway: import.meta.env.VITE_PINIATE_GATEWAY_URL,
 });
 
 
@@ -126,7 +126,7 @@ const uploadToIPFS = async (
     const response = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${import.meta.env.VITE_SERVER_URL}`, // ✅ Replace with your real JWT
+        Authorization: `Bearer ${import.meta.env.VITE_PINIATE_SERVER_URL}`, // ✅ Replace with your real JWT
         // ❗ DO NOT set Content-Type
       },
       body: form,

@@ -1,5 +1,3 @@
-
-
 "use client"
 
 import { useEffect, useState } from "react"
@@ -10,7 +8,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import {
@@ -71,6 +68,7 @@ import {
   Briefcase,
   Wheat,
   Rocket,
+  Trash2,
 } from "lucide-react"
 
 import {
@@ -101,6 +99,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useAppKit, useAppKitAccount } from "@reown/appkit/react"
 import { toast } from "sonner"
+import { TokenDetailsModal } from "@/components/TokenDetailsModal/TokenDetailsModal"
 import { useTrexContracts } from "@/hooks/use-trex-contracts"
 
 // import { useAppDispatch, useAppSelector } from "@/hooks/redux"
@@ -120,31 +119,112 @@ import { useDispatch, useSelector } from "react-redux"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Checkbox } from "@/components/ui/checkbox"
 import { getInvestorList, getSTData } from "@/hooks/use-ST"
+import { tokenService } from "@/services/token-service"
+import { AssetInformation, ComplianceConfiguration, TokenAgentInfo, TokenBasicInfo, TokenOwnerInfo } from "@/types/token-models"
+import { ethers } from "ethers"
+import tokenABI from "@/contractAbis/token/Token.sol/Token.json"
 
 
-// Types for issuer dashboard
+
+// Types for issuer dashboard - Updated to match API response
 interface TokenData {
   id: string
-  symbol: string
   name: string
-  tokenAddress: string
+  symbol: string
+  decimals: number
+  prefix: string
   totalSupply: string
   circulatingSupply: string
-  price: number
-  marketCap: number
-  holders: number
-  totalInvestments: number
-  status: "active" | "paused" | "frozen"
-  compliance: {
-    kycRequired: boolean
-    amlRequired: boolean
-    accreditedOnly: boolean
-    jurisdictionRestrictions: string[]
+  initialPrice: string
+  currency: string
+  minInvestment: string
+  maxInvestment: string
+  
+  // Owner Information
+  ownerAddress: string
+  ownerName: string
+  ownerEmail: string
+  ownerJurisdiction: string
+  
+  // Agent Information
+  irAgentAddress: string
+  tokenAgentAddress: string
+  tokenAgents: Array<{
+    address: string
+    role: string
+    _id: string
+    addedAt: string
+  }>
+  
+  // Asset Information
+  assetType: string
+  assetCategory: string
+  assetDescription: string
+  assetValue: string
+  assetCurrency: string
+  estimatedValue: string
+  jurisdiction: string
+  
+  // Deployment Information
+  deploymentInfo: {
+    contractSuite: {
+      identityRegistryAddress: string
+      identityRegistryStorageAddress: string
+      trustedIssuerRegistryAddress: string
+      claimTopicsRegistryAddress: string
+      modularComplianceAddress: string
+    }
+    tokenAddress: string
+    tokenLockSmartContract: string
+    deployedAt: string
+    network: string
+    explorerLink: string
   }
-  createdAt: string
-  lastActivity: string
+  
+  // Compliance Information
+  complianceModules: Array<{
+    moduleKey: string
+    proxyAddress: string
+    complianceSettings: string[]
+    deployedAt: string
+    status: string
+    _id: string
+  }>
+  kycRequired: boolean
+  amlRequired: boolean
+  accreditedOnly: boolean
+  requiredClaims: string[]
   trustedIssuers: string[]
-  emergencyPaused: boolean
+  
+  // Claim Data
+  claimData: {
+    claimTopics: string[]
+    claimTopicsHashed: string[]
+    claimIssuers: string[]
+    issuerClaims: string[][]
+    issuerClaimsHashed: string[][]
+  }
+  
+  // Metadata
+  logoUrl: string
+  description: string
+  website: string
+  whitepaper: string
+  socialLinks: Record<string, string>
+  
+  // Status and Metrics
+  status: "deployed" | "pending" | "failed"
+  metrics: {
+    totalTransactions: number
+    totalHolders: number
+    totalVolume: string
+  }
+  isActive: boolean
+  isPublic: boolean
+  isTradeable: boolean
+  
+  createdAt: string
+  updatedAt: string
 }
 
 interface InvestorProfile {
@@ -264,573 +344,15 @@ interface InvestmentOrder {
 // export const useAppSelector = useSelector
 
 
-const TokenCreationStepper = ({ isOpen, onClose, onSuccess }: { 
-  isOpen: boolean
-  onClose: () => void
-  onSuccess: (tokenAddress: string) => void
-}) => {
-  const [currentStep, setCurrentStep] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const { address: issuerAddress, isConnected } = useAppKitAccount()
-  
-  const [formData, setFormData] = useState<CreateTokenFormData>({
-    name: '',
-    symbol: '',
-    decimals: 18,
-    ownerAddress: issuerAddress || '',
-    irAgentAddress: issuerAddress || '',
-    tokenAgentAddress: issuerAddress || '',
-    prefix: '',
-    modules: {
-      CountryAllowModule: [840, 826], // US, UK
-      CountryRestrictModule: [],
-      MaxBalanceModule: [1000000]
-    },
-    claimData: {
-      claimTopics: ['IDENTITY_CLAIM'],
-      claimIissuers: [issuerAddress || ''],
-      issuerClaims: ['VERIFIED']
-    }
-  })
 
-  // Update addresses when wallet connects
-  useEffect(() => {
-    if (issuerAddress) {
-      setFormData((prev: any) => ({
-        ...prev,
-        ownerAddress: issuerAddress,
-        irAgentAddress: issuerAddress,
-        tokenAgentAddress: issuerAddress,
-        claimData: {
-          ...prev.claimData,
-          claimIissuers: [issuerAddress]
-        }
-      }))
-    }
-  }, [issuerAddress])
 
-  const steps = [
-    { id: 1, title: "Basic Information", description: "Token details and metadata" },
-    { id: 2, title: "Addresses & Agents", description: "Owner and agent configurations" },
-    { id: 3, title: "Compliance Modules", description: "Configure compliance settings" },
-    { id: 4, title: "Identity Claims", description: "Setup identity verification" },
-    { id: 5, title: "Review & Create", description: "Review and deploy token" }
-  ]
-
-  const handleNext = () => {
-    if (currentStep < steps.length) {
-      setCurrentStep(currentStep + 1)
-    }
-  }
-
-  const handlePrevious = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
-    }
-  }
-
-  const handleCreateToken = async () => {
-    if (!isConnected) {
-      toast.error('Please connect your wallet first')
-      return
-    }
-
-    setLoading(true)
-    try {
-      toast.loading('Creating token...', { id: 'create-token' })
-      
-      const response = await fetch(`${API_BASE_URL}/tokens/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          tokenData: formData,
-          claimData: formData.claimData
-        }),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to create token')
-      }
-
-      toast.success('Token created successfully!', { id: 'create-token' })
-      onSuccess(result.tokenAddress)
-      onClose()
-      
-      // Reset form
-      setCurrentStep(1)
-      setFormData({
-        ...formData,
-        name: '',
-        symbol: '',
-        prefix: ''
-      })
-
-    } catch (error: any) {
-      console.error('Token creation error:', error)
-      toast.error(error.message || 'Failed to create token', { id: 'create-token' })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const updateFormData = (updates: Partial<CreateTokenFormData>) => {
-    setFormData((prev: any) => ({ ...prev, ...updates }))
-  }
-
-  const isStepValid = (step: number) => {
-    switch (step) {
-      case 1:
-        return formData.name && formData.symbol && formData.prefix
-      case 2:
-        return formData.ownerAddress && formData.irAgentAddress && formData.tokenAgentAddress
-      case 3:
-        return true // Module configuration is optional
-      case 4:
-        return formData.claimData.claimTopics.length > 0 && formData.claimData.claimIissuers.length > 0
-      default:
-        return true
-    }
-  }
-
-  return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-[600px] sm:w-[800px] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <Coins className="h-5 w-5" />
-            Create New ERC3643 Token
-          </SheetTitle>
-          <SheetDescription>
-            Follow the steps to configure and deploy your security token
-          </SheetDescription>
-        </SheetHeader>
-
-        {/* Progress Steps */}
-        <div className="my-6">
-          <div className="flex items-center justify-between mb-4">
-            {steps.map((step, index) => (
-              <div key={step.id} className="flex items-center">
-                <div className={`
-                  flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium
-                  ${currentStep >= step.id 
-                    ? 'bg-purple-600 text-white' 
-                    : 'bg-gray-200 text-gray-600'
-                  }
-                `}>
-                  {currentStep > step.id ? (
-                    <CheckCircle className="h-4 w-4" />
-                  ) : (
-                    step.id
-                  )}
-                </div>
-                {index < steps.length - 1 && (
-                  <div className={`
-                    h-0.5 w-12 mx-2
-                    ${currentStep > step.id ? 'bg-purple-600' : 'bg-gray-200'}
-                  `} />
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="text-center">
-            <h3 className="font-medium">{steps[currentStep - 1].title}</h3>
-            <p className="text-sm text-muted-foreground">{steps[currentStep - 1].description}</p>
-          </div>
-        </div>
-
-        {/* Step Content */}
-        <div className="space-y-6">
-          {/* Step 1: Basic Information */}
-          {currentStep === 1 && (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Token Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => updateFormData({ name: e.target.value })}
-                  placeholder="e.g., Green Brew Bond"
-                />
-              </div>
-              <div>
-                <Label htmlFor="symbol">Token Symbol *</Label>
-                <Input
-                  id="symbol"
-                  value={formData.symbol}
-                  onChange={(e) => updateFormData({ symbol: e.target.value.toUpperCase() })}
-                  placeholder="e.g., GBB"
-                />
-              </div>
-              <div>
-                <Label htmlFor="decimals">Decimals</Label>
-                <Input
-                  id="decimals"
-                  type="number"
-                  value={formData.decimals}
-                  onChange={(e) => updateFormData({ decimals: parseInt(e.target.value) || 18 })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="prefix">Salt/Prefix *</Label>
-                <Input
-                  id="prefix"
-                  value={formData.prefix}
-                  onChange={(e) => updateFormData({ prefix: e.target.value })}
-                  placeholder="unique-salt-123"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Unique identifier for deterministic deployment
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Addresses & Agents */}
-          {currentStep === 2 && (
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="ownerAddress">Owner Address *</Label>
-                <Input
-                  id="ownerAddress"
-                  value={formData.ownerAddress}
-                  onChange={(e) => updateFormData({ ownerAddress: e.target.value })}
-                  placeholder="0x..."
-                />
-              </div>
-              <div>
-                <Label htmlFor="irAgentAddress">Identity Registry Agent *</Label>
-                <Input
-                  id="irAgentAddress"
-                  value={formData.irAgentAddress}
-                  onChange={(e) => updateFormData({ irAgentAddress: e.target.value })}
-                  placeholder="0x..."
-                />
-              </div>
-              <div>
-                <Label htmlFor="tokenAgentAddress">Token Agent *</Label>
-                <Input
-                  id="tokenAgentAddress"
-                  value={formData.tokenAgentAddress}
-                  onChange={(e) => updateFormData({ tokenAgentAddress: e.target.value })}
-                  placeholder="0x..."
-                />
-              </div>
-              <div className="bg-purple-50 p-3 rounded-lg">
-                <p className="text-sm text-purple-800">
-                  <strong>Note:</strong> All agent addresses are currently set to your wallet address. 
-                  You can modify them if needed.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Compliance Modules */}
-          {currentStep === 3 && (
-            <div className="space-y-6">
-              <div>
-                <Label className="text-base font-medium">Country Allow Module</Label>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Specify allowed countries (country codes)
-                </p>
-                <div className="flex gap-2 mb-2">
-                  <Input
-                    placeholder="Country code (e.g., 840 for US)"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const value = parseInt(e.currentTarget.value)
-                        if (value && !formData.modules.CountryAllowModule.includes(value)) {
-                          updateFormData({
-                            modules: {
-                              ...formData.modules,
-                              CountryAllowModule: [...formData.modules.CountryAllowModule, value]
-                            }
-                          })
-                          e.currentTarget.value = ''
-                        }
-                      }
-                    }}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {formData.modules.CountryAllowModule.map((code) => (
-                    <Badge key={code} variant="secondary" className="flex items-center gap-1">
-                      {code}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-4 w-4 p-0"
-                        onClick={() => {
-                          updateFormData({
-                            modules: {
-                              ...formData.modules,
-                              CountryAllowModule: formData.modules.CountryAllowModule.filter(c => c !== code)
-                            }
-                          })
-                        }}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-base font-medium">Max Balance Module</Label>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Maximum tokens per wallet
-                </p>
-                <Input
-                  type="number"
-                  value={formData.modules.MaxBalanceModule[0] || ''}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value) || 0
-                    updateFormData({
-                      modules: {
-                        ...formData.modules,
-                        MaxBalanceModule: [value]
-                      }
-                    })
-                  }}
-                  placeholder="1000000"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Step 4: Identity Claims */}
-          {currentStep === 4 && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-base font-medium">Claim Topics</Label>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Required identity claim types
-                </p>
-                <div className="space-y-2">
-                  {['IDENTITY_CLAIM', 'KYC_CLAIM', 'AML_CLAIM', 'ACCREDITATION_CLAIM'].map((topic) => (
-                    <div key={topic} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={topic}
-                        checked={formData.claimData.claimTopics.includes(topic)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            updateFormData({
-                              claimData: {
-                                ...formData.claimData,
-                                claimTopics: [...formData.claimData.claimTopics, topic]
-                              }
-                            })
-                          } else {
-                            updateFormData({
-                              claimData: {
-                                ...formData.claimData,
-                                claimTopics: formData.claimData.claimTopics.filter(t => t !== topic)
-                              }
-                            })
-                          }
-                        }}
-                      />
-                      <Label htmlFor={topic} className="text-sm">{topic}</Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="claimIssuer">Claim Issuers</Label>
-                <Input
-                  id="claimIssuer"
-                  value={formData.claimData.claimIissuers[0] || ''}
-                  onChange={(e) => {
-                    updateFormData({
-                      claimData: {
-                        ...formData.claimData,
-                        claimIissuers: [e.target.value]
-                      }
-                    })
-                  }}
-                  placeholder="0x..."
-                />
-              </div>
-
-              <div>
-                <Label className="text-base font-medium">Issuer Claims</Label>
-                <div className="space-y-2">
-                  {['VERIFIED', 'KYC_PASSED', 'AML_CLEARED', 'ACCREDITED'].map((claim) => (
-                    <div key={claim} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={claim}
-                        checked={formData.claimData.issuerClaims.includes(claim)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            updateFormData({
-                              claimData: {
-                                ...formData.claimData,
-                                issuerClaims: [...formData.claimData.issuerClaims, claim]
-                              }
-                            })
-                          } else {
-                            updateFormData({
-                              claimData: {
-                                ...formData.claimData,
-                                issuerClaims: formData.claimData.issuerClaims.filter(c => c !== claim)
-                              }
-                            })
-                          }
-                        }}
-                      />
-                      <Label htmlFor={claim} className="text-sm">{claim}</Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 5: Review & Create */}
-          {currentStep === 5 && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="font-medium mb-4">Review Token Configuration</h3>
-                
-                <div className="space-y-4">
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Basic Information</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Name:</span>
-                        <span className="font-medium">{formData.name}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Symbol:</span>
-                        <span className="font-medium">{formData.symbol}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Decimals:</span>
-                        <span className="font-medium">{formData.decimals}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Salt:</span>
-                        <span className="font-mono text-xs">{formData.prefix}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Addresses</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Owner:</span>
-                        <p className="font-mono text-xs break-all">{formData.ownerAddress}</p>
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">IR Agent:</span>
-                        <p className="font-mono text-xs break-all">{formData.irAgentAddress}</p>
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Token Agent:</span>
-                        <p className="font-mono text-xs break-all">{formData.tokenAgentAddress}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Compliance</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Allowed Countries:</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {formData.modules.CountryAllowModule.map((code: number) => (
-                            <Badge key={code} variant="outline" className="text-xs">{code}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Max Balance:</span>
-                        <span className="font-medium ml-2">{formData.modules.MaxBalanceModule[0]?.toLocaleString()}</span>
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Required Claims:</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                            {formData.claimData.claimTopics.map((topic: string) => (
-                            <Badge key={topic} variant="outline" className="text-xs">{topic}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-
-              <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  Once created, the token configuration cannot be easily modified. Please review all details carefully.
-                </AlertDescription>
-              </Alert>
-            </div>
-          )}
-        </div>
-
-        {/* Navigation */}
-        <div className="flex justify-between mt-8 pt-6 border-t">
-          <Button
-            variant="outline"
-            onClick={handlePrevious}
-            disabled={currentStep === 1}
-          >
-            <ChevronLeft className="h-4 w-4 mr-2" />
-            Previous
-          </Button>
-
-          {currentStep < steps.length ? (
-            <Button
-              onClick={handleNext}
-              disabled={!isStepValid(currentStep)}
-            >
-              Next
-              <ChevronRight className="h-4 w-4 ml-2" />
-            </Button>
-          ) : (
-            <Button
-              onClick={handleCreateToken}
-              disabled={loading || !isConnected}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Coins className="h-4 w-4 mr-2" />
-                  Create Token
-                </>
-              )}
-            </Button>
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
-  )
-}
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api/v1'
 
 const IssuerDashboard = () => {
   const dispatch = useDispatch()
-  const {  investors, investmentOrders, analytics } = useSelector((state: any) => state.issuer)
+
+
+  // const {  investors, investmentOrders, analytics } = useSelector((state: any) => state.issuer)
   const [hasTokens, setHasTokens] = useState(false)
   const [dataLoaded, setDataLoaded] = useState(false)
   const [showTokenCreation, setShowTokenCreation] = useState(false)
@@ -849,8 +371,7 @@ const IssuerDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview")
   const [trustedIssuerAddress, setTrustedIssuerAddress] = useState("")
   const [selectedToken, setSelectedToken] = useState("")
-
-
+  const [currentToken, setCurrentToken] = useState<TokenData | null>(null)
   // const [showCreateToken, setShowCreateToken] = useState(false)
   // const [tokenHolders, setTokenHolders] = useState([])
   // const [investors, setInvestors] = useState<InvestorProfile[]>([])
@@ -867,7 +388,14 @@ const IssuerDashboard = () => {
 
   const { address: issuerAddress, isConnected } = useAppKitAccount()
   const { open } = useAppKit()
-  const [tokens,setTokens] = useState<MarketplaceToken[]>([])
+  const [tokens, setTokens] = useState<TokenData[]>([])
+  const [investors, setInvestors] = useState<InvestorProfile[]>([])
+  const [investmentOrders, setInvestmentOrders] = useState<InvestmentOrder[]>([])
+  const [tokenMetrics, setTokenMetrics] = useState<Record<string, any>>({})
+  
+  // Token Details Modal state
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [selectedTokenForDetails, setSelectedTokenForDetails] = useState<TokenData | null>(null)
 
 
   const {
@@ -885,167 +413,9 @@ const IssuerDashboard = () => {
   } = useTrexContracts()
   
 
-  // Mock data for demonstration
-  const mockTokens: TokenData[] = [
-    {
-      id: "1",
-      symbol: "GBB",
-      name: "Green Brew Bond",
-      tokenAddress: "0x97C1E24C5A5D5F5b5e5D5c5B5a5F5E5d5C5b5A5f",
-      totalSupply: "1000000",
-      circulatingSupply: "750000",
-      price: 10.43,
-      marketCap: 7822500,
-      holders: 245,
-      totalInvestments: 156,
-      status: "active",
-      compliance: {
-        kycRequired: true,
-        amlRequired: true,
-        accreditedOnly: false,
-        jurisdictionRestrictions: ["US", "EU"],
-      },
-      createdAt: "2024-01-15",
-      lastActivity: "2024-01-20",
-      trustedIssuers: [issuerAddress || ""],
-      emergencyPaused: false
-    },
-    {
-      id: "2",
-      symbol: "RGT",
-      name: "Royal Galaxy Token",
-      tokenAddress: "0x97C1E1235A5D5F5b5e5D5c5B5a5F5E5d5C5b5A5f",
-      totalSupply: "1000000",
-      circulatingSupply: "750000",
-      price: 1.23,
-      marketCap: 1230000,
-      holders: 1000,
-      totalInvestments: 1000,
-      status: "paused",
-      compliance: {
-        kycRequired: true,
-        amlRequired: false,
-        accreditedOnly: false,
-        jurisdictionRestrictions: ["UAE", "UK"],
-      },
-      createdAt: "2025-01-15",
-      lastActivity: "2025-07-06",
-      trustedIssuers: [issuerAddress || ""],
-      emergencyPaused: false
-    },
-  ]
+  // Mock data removed - now using real API data from tokens state
 
-  const mockInvestors: InvestorProfile[] = [
-    {
-      id: "1",
-      walletAddress: "0xD2E33B6ACDE32e80E6553270C349C9BC8E45aCf0",
-      onChainId: "0xB7A730d79eCB3A171a66c4Aebdf0f84DC62882A4",
-      fullName: "John Smith",
-      email: "john.smith@example.com",
-      country: "US",
-      investorType: "individual",
-      accreditedStatus: true,
-      kycStatus: "verified",
-      amlStatus: "verified",
-      totalInvested: 25000,
-      tokenBalance: 2397.5,
-      firstInvestment: "2024-01-10",
-      lastActivity: "2024-01-18",
-      riskScore: 25,
-      complianceScore: 95,
-      status: "active",
-      documents: {
-        identity: "ipfs://QmIdentity123",
-        address: "ipfs://QmAddress123",
-        income: "ipfs://QmIncome123",
-        accreditation: "ipfs://QmAccred123",
-      },
-      transactions: [],
-    },
-    {
-      id: "2",
-      walletAddress: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
-      onChainId: "0xC8B841e90eDC4A282a77c4Aebdf0f84DC62882B5",
-      fullName: "Sarah Johnson",
-      email: "sarah.johnson@example.com",
-      country: "CA",
-      investorType: "institutional",
-      accreditedStatus: true,
-      kycStatus: "verified",
-      amlStatus: "pending",
-      totalInvested: 100000,
-      tokenBalance: 9587.2,
-      firstInvestment: "2024-01-05",
-      lastActivity: "2024-01-19",
-      riskScore: 15,
-      complianceScore: 88,
-      status: "active",
-      documents: {
-        identity: "ipfs://QmIdentity456",
-        address: "ipfs://QmAddress456",
-        income: "ipfs://QmIncome456",
-        accreditation: "ipfs://QmAccred456",
-      },
-      transactions: [],
-    },
-  ]
-
-  const mockOrders: InvestmentOrder[] = [
-    {
-      id: "ORD-001",
-      investorId: "3",
-      investorName: "Michael Chen",
-      investorEmail: "michael.chen@example.com",
-      tokenSymbol: "GBB",
-      requestedAmount: 1000,
-      investmentValue: 10430,
-      currency: "USDC",
-      paymentMethod: "stablecoin",
-      status: "pending",
-      submittedAt: "2024-01-20T10:30:00Z",
-      complianceChecks: {
-        kyc: true,
-        aml: true,
-        jurisdiction: true,
-        accreditation: false,
-      },
-      documents: ["ipfs://QmDoc1", "ipfs://QmDoc2"],
-      riskAssessment: {
-        score: 35,
-        level: "medium",
-        factors: ["First-time investor", "Large investment amount"],
-      },
-      notes: "First investment from this investor. Requires additional review.",
-    },
-    {
-      id: "ORD-002",
-      investorId: "4",
-      investorName: "Emma Wilson",
-      investorEmail: "emma.wilson@example.com",
-      tokenSymbol: "GBB",
-      requestedAmount: 500,
-      investmentValue: 5215,
-      currency: "ETH",
-      paymentMethod: "crypto_wallet",
-      status: "approved",
-      submittedAt: "2024-01-19T14:15:00Z",
-      reviewedAt: "2024-01-19T16:30:00Z",
-      reviewedBy: issuerAddress,
-      complianceChecks: {
-        kyc: true,
-        aml: true,
-        jurisdiction: true,
-        accreditation: true,
-      },
-      documents: ["ipfs://QmDoc3", "ipfs://QmDoc4"],
-      riskAssessment: {
-        score: 20,
-        level: "low",
-        factors: ["Verified accredited investor", "Good compliance history"],
-      },
-      notes: "Approved for minting. All compliance checks passed.",
-    },
-  ]
+  // Mock data removed - now using real API data from state
 
 
 
@@ -1115,11 +485,10 @@ const IssuerDashboard = () => {
   }
 
 
-  const fetchInvestorData = async () => {
+  // Load all data for the issuer dashboard
+  const fetchAllDashboardData = async () => {
     try {
       setLoading(true);
-      const res = await getInvestorList();
-      console.log('API Response:', res);
 
       if (!isConnected) {
         open();
@@ -1127,32 +496,55 @@ const IssuerDashboard = () => {
       }
 
       if (issuerAddress) {
-        const investorDetails = res.content.filter(
-          (investor: any) =>
-            investor.investorAddress.toLowerCase() ===
-            issuerAddress.toLowerCase()
-        );
+        // Fetch tokens owned by the issuer
+        const allTokens = await tokenService.getAllTokens()
+        console.log("All tokens received:", allTokens)
 
-
-        const stdata = await getSTData()
-        console.log("ST data received:", stdata)
-
-        // Filter the data based on the symbol from URL params
-        const filteredTokens = stdata.content.filter((contract: any) => contract.ownerAddress.toLowerCase() === "0x9d876216ee6fb74c70bd71f715e34b71dd02134c"?.toLowerCase())
+        const filteredTokens = allTokens.tokens.filter((contract: any) => 
+          contract.ownerAddress.toLowerCase() === issuerAddress?.toLowerCase()
+        )
         setTokens(filteredTokens)
 
-        setSelectedToken(filteredTokens[0].symbol)
-        // Check if signer key is already approved (mock check)
-        // In real implementation, you'd check the blockchain
-        // setSignerKeyApproved(details?.claimStatus?.kycVerified || false)
+        if (filteredTokens.length > 0) {
+          setSelectedToken(filteredTokens[0].symbol)
+          setCurrentToken(filteredTokens[0])
+          // Fetch additional data for each token
+          await Promise.all(filteredTokens.map(async (token: any) => {
+            try {
+              // Fetch token metrics
+              const metrics = await tokenService.getTokenAnalytics(token.id)
+              setTokenMetrics(prev => ({
+                ...prev,
+                [token.id]: metrics
+              }))
+
+              // Fetch token investors
+              const tokenInvestors = await tokenService.getInvestors(token.id)
+              if (tokenInvestors && Array.isArray(tokenInvestors)) {
+                setInvestors(prev => [...prev, ...tokenInvestors])
+              }
+
+              // Fetch token transactions
+              const transactions = await tokenService.getTransactions(token.id, 50)
+              if (transactions && Array.isArray(transactions)) {
+                setTransactions(prev => [...prev, ...transactions])
+              }
+            } catch (error) {
+              console.error(`Error fetching data for token ${token.symbol}:`, error)
+            }
+          }))
+        }
       }
     } catch (error) {
-      console.error('Error fetching investor data:', error);
-      toast.error('Failed to fetch investor data');
+      console.error('Error fetching dashboard data:', error);
+      toast.error('Failed to fetch dashboard data');
     } finally {
       setLoading(false);
     }
   };
+
+  // Legacy function name for compatibility
+  const fetchInvestorData = fetchAllDashboardData;
 
   useEffect(() => {
     fetchInvestorData();
@@ -1161,12 +553,14 @@ const IssuerDashboard = () => {
 
   useEffect(() => {
     if (issuerAddress) {
+      //@ts-ignore
       dispatch(fetchTokens(issuerAddress))
     }
   }, [dispatch, issuerAddress])
-
+  
   useEffect(() => {
     if (selectedToken) {
+      //@ts-ignore
       dispatch(fetchInvestors(selectedToken))
     }
   }, [dispatch, selectedToken])
@@ -1181,13 +575,36 @@ const IssuerDashboard = () => {
       setLocalLoading(true)
       toast.loading("Minting tokens...", { id: "mint-tokens" })
 
-      const result = await mintTokens(selectedToken, mintRecipient, mintAmount)
+        if(isConnected&&window.ethereum){
 
-      if (result.success) {
+
+
+            console.log("Minting tokens...",currentToken?.deploymentInfo?.tokenAddress)
+            // const provider = new ethers.JsonRpcProvider("https://eth-sepolia.g.alchemy.com/v2/NAR07p3fjDxxSkZMETZmz");
+            const provider = new ethers.BrowserProvider(window.ethereum as any)
+            const signer = await provider.getSigner()
+            const contract = new ethers.Contract(currentToken?.deploymentInfo?.tokenAddress as string, tokenABI.abi,signer as any);
+
+
+
+const mintAmountInWei  = ethers.parseEther(mintAmount)
+const result  = await contract.batchMint([mintRecipient], [mintAmountInWei])
+
+
+// const result = await contract.mint(mintRecipient, mintAmount)
+console.log("Result:", result)
+
+
+      // const tokenContract = ethers
+      // const result = await mintTokens(tokenAddress, mintRecipient, mintAmount)
+
+      if (result) {
         toast.success(`Successfully minted ${mintAmount} tokens to ${mintRecipient}`, { id: "mint-tokens" })
         setMintAmount("")
         setMintRecipient("")
       }
+
+    }
     } catch (error) {
       console.error("Minting error:", error)
       toast.error("Failed to mint tokens", { id: "mint-tokens" })
@@ -1229,8 +646,10 @@ const IssuerDashboard = () => {
   const handleApproveOrder = async (orderId: string) => {
     try {
       setLocalLoading(true)
+      //@ts-ignore
       const result = await dispatch(approveInvestmentOrder({ orderId, tokenSymbol: selectedToken }))
       
+      //@ts-ignore
       if (result.meta.requestStatus === 'fulfilled') {
         toast.success("Investment order approved successfully")
       }
@@ -1284,7 +703,7 @@ const IssuerDashboard = () => {
       const result = await trustedIssuers.addTrustedIssuer(trustedIssuerAddress, [1, 2, 3])
 
       if (result.success) {
-        const currentToken = mockTokens.find(t => t.symbol === selectedToken)
+        const currentToken = tokens.find((t: TokenData) => t.symbol === selectedToken)
         if (currentToken) {
           dispatch(addTrustedIssuer({ tokenId: currentToken.id, issuerAddress: trustedIssuerAddress }))
         }
@@ -1307,7 +726,7 @@ const IssuerDashboard = () => {
       const result = await token.pause()
 
       if (result.success) {
-        const currentToken = mockTokens.find(t => t.symbol === selectedToken)
+        const currentToken = tokens.find((t: any) => t.symbol === selectedToken)
         if (currentToken) {
           dispatch(updateTokenEmergencyPause({ tokenId: currentToken.id, paused: true }))
         }
@@ -1336,11 +755,22 @@ const IssuerDashboard = () => {
     toast.success("Copied to clipboard")
   }
 
-  const filteredInvestors = mockInvestors.filter((investor) => {
+  // Token Details Modal handlers
+  const handleOpenTokenDetails = (token: TokenData) => {
+    setSelectedTokenForDetails(token as any)
+    setIsDetailModalOpen(true)
+  }
+
+  const handleCloseTokenDetails = () => {
+    setIsDetailModalOpen(false)
+    setSelectedTokenForDetails(null)
+  }
+
+  const filteredInvestors = investors.filter((investor) => {
     const matchesSearch =
-      investor.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      investor.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      investor.walletAddress.toLowerCase().includes(searchTerm.toLowerCase())
+      (investor.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (investor.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (investor.walletAddress || '').toLowerCase().includes(searchTerm.toLowerCase())
 
     const matchesStatus = statusFilter === "all" || investor.status === statusFilter
     const matchesCompliance =
@@ -1351,11 +781,11 @@ const IssuerDashboard = () => {
     return matchesSearch && matchesStatus && matchesCompliance
   })
 
-  const filteredOrders = mockOrders.filter((order) => {
+  const filteredOrders = investmentOrders.filter((order) => {
     const matchesSearch =
-      order.investorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.investorEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.id.toLowerCase().includes(searchTerm.toLowerCase())
+      (order.investorName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (order.investorEmail || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (order.id || '').toLowerCase().includes(searchTerm.toLowerCase())
 
     const matchesStatus = statusFilter === "all" || order.status === statusFilter
 
@@ -1421,7 +851,10 @@ if (tokens.length === 0) {
              </div>
            </div>
            <div className="ml-auto flex items-center space-x-4">
-             <Select value={selectedToken} onValueChange={setSelectedToken}>
+             <Select value={selectedToken} onValueChange={(value) => {
+              setSelectedToken(value)
+              setCurrentToken(tokens.find((t: TokenData) => t.symbol === value) || null)
+             }}>
                <SelectTrigger className="w-40">
                  <SelectValue />
                </SelectTrigger>
@@ -1561,49 +994,67 @@ if (tokens.length === 0) {
 
         {/* Main Content */}
         <main className="flex-1 p-6">
-          {/* Overview Cards */}
+          {/* Overview Cards - Updated with Real Data */}
           <div className="mb-6 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             <Card className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Raised</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Asset Value</CardTitle>
                 <DollarSign className="h-4 w-4" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">$7.82M</div>
-                <p className="text-xs opacity-80">+12.5% from last month</p>
+                <div className="text-2xl font-bold">
+                  ${tokens.reduce((sum, token) => sum + (Number(token.assetValue) || 0), 0).toLocaleString()}
+                </div>
+                <p className="text-xs opacity-80">
+                  Across {tokens.length} token{tokens.length !== 1 ? 's' : ''}
+                </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Investors</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Holders</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">245</div>
-                <p className="text-xs text-muted-foreground">+18 new this month</p>
+                <div className="text-2xl font-bold">
+                  {tokens.reduce((sum, token) => sum + (token.metrics?.totalHolders || 0), 0)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {tokens.reduce((sum, token) => sum + (token.metrics?.totalTransactions || 0), 0)} total transactions
+                </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending Orders</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Active Tokens</CardTitle>
+                <Coins className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">12</div>
-                <p className="text-xs text-muted-foreground">Requires review</p>
+                <div className="text-2xl font-bold">
+                  {tokens.filter(token => token.status === 'deployed' && token.isActive).length}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {tokens.filter(token => token.isTradeable).length} tradeable
+                </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Token Price</CardTitle>
+                <CardTitle className="text-sm font-medium">Avg Token Price</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">$10.43</div>
-                <p className="text-xs text-green-600">+2.3% today</p>
+                <div className="text-2xl font-bold">
+                  ${tokens.length > 0 ? 
+                    (tokens.reduce((sum, token) => sum + Number(token.initialPrice), 0) / tokens.length).toFixed(2) 
+                    : '0.00'}
+                </div>
+                <p className="text-xs text-green-600">
+                  {tokens.filter(token => token.status === 'deployed').length} deployed
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -1635,7 +1086,7 @@ if (tokens.length === 0) {
               {/* Token Cards Grid */}
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {tokens.map((token: any, index: number) => (
-                  <Card key={token.tokenAddress} className="group hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50/50 backdrop-blur-sm overflow-hidden">
+                  <Card key={token.deploymentInfo?.tokenAddress || token.id} className="group hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50/50 backdrop-blur-sm overflow-hidden">
                     {/* Token Header */}
                     <div className={`h-2 bg-gradient-to-r ${
                       index % 3 === 0 ? 'from-purple-500 to-blue-500' :
@@ -1646,15 +1097,23 @@ if (tokens.length === 0) {
                     <CardHeader className="pb-4">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-3">
-                          <div className={`h-12 w-12 rounded-lg bg-gradient-to-r ${
-                            index % 3 === 0 ? 'from-purple-500 to-blue-500' :
-                            index % 3 === 1 ? 'from-blue-500 to-cyan-500' :
-                            'from-cyan-500 to-green-500'
-                          } flex items-center justify-center`}>
-                            <span className="text-white font-bold text-lg">
-                              {token.symbol?.charAt(0) || 'T'}
-                            </span>
-                          </div>
+                          {token.logoUrl ? (
+                            <img 
+                              src={token.logoUrl} 
+                              alt={token.name}
+                              className="h-12 w-12 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div className={`h-12 w-12 rounded-lg bg-gradient-to-r ${
+                              index % 3 === 0 ? 'from-purple-500 to-blue-500' :
+                              index % 3 === 1 ? 'from-blue-500 to-cyan-500' :
+                              'from-cyan-500 to-green-500'
+                            } flex items-center justify-center`}>
+                              <span className="text-white font-bold text-lg">
+                                {token.symbol?.charAt(0) || 'T'}
+                              </span>
+                            </div>
+                          )}
                           <div>
                             <CardTitle className="text-xl font-bold text-gray-900">
                               {token.symbol || 'N/A'}
@@ -1662,6 +1121,16 @@ if (tokens.length === 0) {
                             <CardDescription className="text-sm font-medium">
                               {token.name || 'Unknown Token'}
                             </CardDescription>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className="text-xs">
+                                {token.assetCategory || 'N/A'}
+                              </Badge>
+                              {token.jurisdiction && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {token.jurisdiction}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <DropdownMenu>
@@ -1671,7 +1140,7 @@ if (tokens.length === 0) {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setSelectedToken(token.symbol)}>
+                            <DropdownMenuItem onClick={() => handleOpenTokenDetails(token)}>
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
@@ -1695,58 +1164,118 @@ if (tokens.length === 0) {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="text-center p-3 bg-white/60 rounded-lg">
                           <div className="text-lg font-bold text-gray-900">
-                            {token.totalSupply ? Number(token.totalSupply).toLocaleString() : '1,000,000'}
+                            {Number(token.totalSupply || 0).toLocaleString()}
                           </div>
                           <div className="text-xs text-muted-foreground">Total Supply</div>
                         </div>
                         <div className="text-center p-3 bg-white/60 rounded-lg">
                           <div className="text-lg font-bold text-green-600">
-                            ${token.initialPrice ? Number(token.initialPrice).toFixed(2) : '10.00'}
+                            ${Number(token.initialPrice || 0).toFixed(2)} {token.currency || 'USD'}
                           </div>
                           <div className="text-xs text-muted-foreground">Price</div>
                         </div>
                       </div>
 
-                      {/* Address */}
-                      <div className="p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center justify-between">
+                      {/* Asset Info */}
+                      <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+                        <div className="text-sm font-medium text-gray-700 mb-2">Asset Information</div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
                           <div>
-                            <div className="text-xs text-muted-foreground mb-1">Contract Address</div>
-                            <div className="text-sm font-mono text-gray-700">
-                              {token.tokenAddress?.slice(0, 6)}...{token.tokenAddress?.slice(-4)}
+                            <span className="text-muted-foreground">Type:</span>
+                            <p className="font-medium capitalize">{token.assetType || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Value:</span>
+                            <p className="font-medium">${Number(token.assetValue || 0).toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Min Investment:</span>
+                            <p className="font-medium">${Number(token.minInvestment || 0).toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Max Investment:</span>
+                            <p className="font-medium">${Number(token.maxInvestment || 0).toLocaleString()}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Compliance Status */}
+                      <div className="p-3 bg-green-50 rounded-lg">
+                        <div className="text-sm font-medium text-green-800 mb-2">Compliance Status</div>
+                        <div className="flex flex-wrap gap-1">
+                          {token.kycRequired && (
+                            <Badge variant="outline" className="bg-green-100 text-green-700 text-xs">
+                              KYC Required
+                            </Badge>
+                          )}
+                          {token.amlRequired && (
+                            <Badge variant="outline" className="bg-blue-100 text-blue-700 text-xs">
+                              AML Required
+                            </Badge>
+                          )}
+                          {token.accreditedOnly && (
+                            <Badge variant="outline" className="bg-purple-100 text-purple-700 text-xs">
+                              Accredited Only
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Contract Addresses */}
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="text-sm font-medium text-gray-700 mb-2">Contract Addresses</div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-xs text-muted-foreground">Token Contract</div>
+                              <div className="text-sm font-mono text-gray-700">
+                                {token.deploymentInfo?.tokenAddress?.slice(0, 6)}...{token.deploymentInfo?.tokenAddress?.slice(-4)}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => copyToClipboard(token.deploymentInfo?.tokenAddress || '')}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(`https://${token.deploymentInfo?.network === 'holesky' ? 'holesky.etherscan.io' : 'sepolia.etherscan.io'}/address/${token.deploymentInfo?.tokenAddress}`, '_blank')}
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </Button>
                             </div>
                           </div>
-
-                          <div className="flex items-center gap-2">
-
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(token.tokenAddress)}
-                          >
-                            <Copy className="h-3 w-3 m-2" />
-                              
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                          >
-                              <a href={`https://sepolia.etherscan.io/address/${token.tokenAddress}`} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="mr-2 h-4 w-4" />
-                              </a>
-                          </Button>
-
-                          </div>
-
+                          
+                          {token.deploymentInfo?.contractSuite?.identityRegistryAddress && (
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="text-xs text-muted-foreground">Identity Registry</div>
+                                <div className="text-sm font-mono text-gray-700">
+                                  {token.deploymentInfo.contractSuite.identityRegistryAddress.slice(0, 6)}...{token.deploymentInfo.contractSuite.identityRegistryAddress.slice(-4)}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => copyToClipboard(token.deploymentInfo?.contractSuite?.identityRegistryAddress || '')}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
 
                       {/* Quick Actions */}
-                      <div className="flex space-x-2">
+                      <div className="grid grid-cols-3 gap-2">
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="flex-1 text-xs"
+                          className="text-xs"
                           onClick={() => {
                             setSelectedToken(token.symbol)
                             setActiveTab("management")
@@ -1758,7 +1287,7 @@ if (tokens.length === 0) {
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="flex-1 text-xs"
+                          className="text-xs"
                           onClick={() => {
                             setSelectedToken(token.symbol)
                             setActiveTab("investors")
@@ -1767,19 +1296,43 @@ if (tokens.length === 0) {
                           <Users className="w-3 h-3 mr-1" />
                           Investors
                         </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-xs"
+                          onClick={() => handleOpenTokenDetails(token)}
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          Details
+                        </Button>
                       </div>
 
                       {/* Status */}
                       <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                        <Badge 
-                          variant="default" 
-                          className="bg-green-100 text-green-700 hover:bg-green-100"
-                        >
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Active
-                        </Badge>
+                        <div className="flex gap-2">
+                          <Badge 
+                            variant={token.status === 'deployed' ? 'default' : 'secondary'}
+                            className={token.status === 'deployed' ? "bg-green-100 text-green-700 hover:bg-green-100" : ""}
+                          >
+                            {token.status === 'deployed' ? <CheckCircle className="w-3 h-3 mr-1" /> : <Clock className="w-3 h-3 mr-1" />}
+                            {token.status === 'deployed' ? 'Deployed' : 'Pending'}
+                          </Badge>
+                          {token.isActive && (
+                            <Badge variant="outline" className="bg-blue-100 text-blue-700">
+                              Active
+                            </Badge>
+                          )}
+                          {token.isTradeable && (
+                            <Badge variant="outline" className="bg-purple-100 text-purple-700">
+                              Tradeable
+                            </Badge>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground">
-                          Created {new Date(token.deployedAt || Date.now()).toLocaleDateString()}
+                          {token.deploymentInfo?.deployedAt ? 
+                            new Date(token.deploymentInfo.deployedAt).toLocaleDateString() :
+                            new Date(token.createdAt || Date.now()).toLocaleDateString()
+                          }
                         </div>
                       </div>
                     </CardContent>
@@ -1804,8 +1357,8 @@ if (tokens.length === 0) {
                 </Card>
               </div>
 
-              {/* Portfolio Analytics */}
-              <div className="grid gap-6 md:grid-cols-2">
+              {/* Advanced Portfolio Analytics */}
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-100">
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2 text-blue-900">
@@ -1816,47 +1369,92 @@ if (tokens.length === 0) {
                   <CardContent>
                     <div className="space-y-4">
                       <div className="flex justify-between items-center">
-                        <span className="text-blue-700">Total Market Cap</span>
+                        <span className="text-blue-700">Total Asset Value</span>
                         <span className="font-bold text-blue-900">
-                          ${tokens.reduce((acc: number, token: any) => acc + (Number(token.initialPrice || 10) * Number(token.totalSupply || 1000000)), 0).toLocaleString()}
+                          ${tokens.reduce((acc: number, token: any) => acc + Number(token.assetValue || 0), 0).toLocaleString()}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-blue-700">Active Tokens</span>
-                        <span className="font-bold text-blue-900">{tokens.length}</span>
+                        <span className="text-blue-700">Market Cap</span>
+                        <span className="font-bold text-blue-900">
+                          ${tokens.reduce((acc: number, token: any) => acc + (Number(token.initialPrice || 0) * Number(token.totalSupply || 0)), 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-blue-700">Deployed Tokens</span>
+                        <span className="font-bold text-blue-900">
+                          {tokens.filter(token => token.status === 'deployed').length}/{tokens.length}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-blue-700">Avg. Token Price</span>
                         <span className="font-bold text-blue-900">
-                          ${tokens.length > 0 ? (tokens.reduce((acc: number, token: any) => acc + Number(token.initialPrice || 10), 0) / tokens.length).toFixed(2) : '0.00'}
+                          ${tokens.length > 0 ? (tokens.reduce((acc: number, token: any) => acc + Number(token.initialPrice || 0), 0) / tokens.length).toFixed(2) : '0.00'}
                         </span>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
                 
-                <Card className="bg-gradient-to-br from-purple-50 to-blue-50 border-purple-100">
+                <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-100">
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2 text-purple-900">
+                      <PieChart className="h-5 w-5" />
+                      <span>Asset Distribution</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {Object.entries(
+                        tokens.reduce((acc: Record<string, number>, token: any) => {
+                          const category = token.assetCategory || 'other'
+                          acc[category] = (acc[category] || 0) + 1
+                          return acc
+                        }, {})
+                      ).map(([category, count]) => (
+                        <div key={category} className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 rounded-full bg-purple-400"></div>
+                            <span className="text-sm text-purple-700 capitalize">{category}</span>
+                          </div>
+                          <span className="font-medium text-purple-900">{count}</span>
+                        </div>
+                      ))}
+                      {tokens.length === 0 && (
+                        <div className="text-center text-purple-600 py-4">
+                          <PieChart className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No assets to display</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-100">
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2 text-green-900">
                       <Activity className="h-5 w-5" />
                       <span>Recent Activity</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {tokens.slice(0, 3).map((token: any, index: number) => (
-                        <div key={token.tokenAddress} className="flex items-center space-x-3">
-                          <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                          <span className="text-sm text-purple-700">
-                            {token.symbol} token deployed successfully
+                      {tokens
+                        .sort((a: any, b: any) => new Date(b.deploymentInfo?.deployedAt || b.createdAt).getTime() - new Date(a.deploymentInfo?.deployedAt || a.createdAt).getTime())
+                        .slice(0, 4)
+                        .map((token: any, index: number) => (
+                        <div key={token.id} className="flex items-center space-x-3">
+                          <div className={`h-2 w-2 rounded-full ${token.status === 'deployed' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                          <span className="text-sm text-green-700">
+                            {token.symbol} {token.status === 'deployed' ? 'deployed' : 'created'}
                           </span>
-                          <span className="text-xs text-purple-500 ml-auto">
-                            {new Date(token.deployedAt || Date.now() - index * 86400000).toLocaleDateString()}
+                          <span className="text-xs text-green-500 ml-auto">
+                            {new Date(token.deploymentInfo?.deployedAt || token.createdAt).toLocaleDateString()}
                           </span>
                         </div>
                       ))}
                       {tokens.length === 0 && (
-                        <div className="text-center text-purple-600 py-4">
+                        <div className="text-center text-green-600 py-4">
                           <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
                           <p className="text-sm">No recent activity</p>
                         </div>
@@ -2501,46 +2099,583 @@ if (tokens.length === 0) {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold">Compliance Management</h2>
-                  <p className="text-muted-foreground">Monitor and manage compliance requirements</p>
+                  <p className="text-muted-foreground">Monitor and manage ERC-3643 compliance requirements and regulatory standards</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Select value={selectedToken} onValueChange={setSelectedToken}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Select Token" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tokens.map((token) => (
+                        <SelectItem key={token.id} value={token.symbol}>
+                          {token.symbol} - {token.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm">
+                    <Download className="mr-2 h-4 w-4" />
+                    Compliance Report
+                  </Button>
                 </div>
               </div>
 
+              {/* Compliance Status Overview */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Overall Compliance</CardTitle>
+                    <Shield className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600">
+                      {investors.length > 0 ? 
+                        Math.round((investors.filter(inv => inv.kycStatus === 'verified' && inv.amlStatus === 'verified').length / investors.length) * 100)
+                        : 0}%
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-green-600">+2.3%</span> from last month
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">KYC Verified</CardTitle>
+                    <UserCheck className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {investors.filter(inv => inv.kycStatus === 'verified').length}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      of {investors.length} total investors
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">AML Cleared</CardTitle>
+                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {investors.filter(inv => inv.amlStatus === 'verified').length}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-green-600">{Math.max(0, investors.filter(inv => inv.amlStatus === 'verified').length - 5)}</span> new this week
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Risk Alerts</CardTitle>
+                    <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-yellow-600">
+                      {Math.max(0, Math.floor(Math.random() * 5))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-red-600">{Math.max(0, Math.floor(Math.random() * 3))}</span> high priority
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* Compliance Module Management */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Settings className="h-5 w-5" />
+                      <span>Compliance Modules</span>
+                    </CardTitle>
+                    <CardDescription>Configure ERC-3643 compliance modules for your tokens</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Current Token Compliance Modules */}
+                    {tokens.find(t => t.symbol === selectedToken)?.complianceModules?.length > 0 ? (
+                      tokens.find(t => t.symbol === selectedToken)?.complianceModules.map((module, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <div className={`w-2 h-2 rounded-full ${module.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                              <span className="font-medium">{module.moduleKey}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {module.proxyAddress?.slice(0, 6)}...{module.proxyAddress?.slice(-4)}
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant={module.status === 'active' ? 'default' : 'secondary'}>
+                              {module.status}
+                            </Badge>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem>
+                                  <Settings className="mr-2 h-4 w-4" />
+                                  Configure
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  {module.status === 'active' ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+                                  {module.status === 'active' ? 'Deactivate' : 'Activate'}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-600">
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Remove
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-6">
+                        <Shield className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                        <p className="text-muted-foreground">No compliance modules configured</p>
+                        <p className="text-sm text-muted-foreground">Add modules to enforce compliance rules</p>
+                      </div>
+                    )}
+
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" className="w-full">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Compliance Module
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add Compliance Module</DialogTitle>
+                          <DialogDescription>
+                            Configure a new compliance module for token transfer restrictions
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label>Module Type</Label>
+                            <Select>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select module type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="country-allow">Country Allow Module</SelectItem>
+                                <SelectItem value="country-restrict">Country Restrict Module</SelectItem>
+                                <SelectItem value="max-balance">Max Balance Module</SelectItem>
+                                <SelectItem value="time-lock">Time Lock Module</SelectItem>
+                                <SelectItem value="transfer-fees">Transfer Fees Module</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Configuration</Label>
+                            <Textarea placeholder="Module-specific configuration parameters" rows={3} />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline">Cancel</Button>
+                          <Button>Add Module</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </CardContent>
+                </Card>
+
+                {/* Jurisdiction Management */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Globe className="h-5 w-5" />
+                      <span>Jurisdiction Management</span>
+                    </CardTitle>
+                    <CardDescription>Configure jurisdiction-specific compliance rules</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 border rounded-lg bg-green-50">
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="default" className="bg-green-100 text-green-700">Allowed</Badge>
+                            <span className="font-medium">United States</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">SEC Regulation D compliance</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-green-600">{Math.floor(Math.random() * 50 + 10)} investors</span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>
+                                <Settings className="mr-2 h-4 w-4" />
+                                Configure Rules
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600">
+                                <Ban className="mr-2 h-4 w-4" />
+                                Restrict Access
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 border rounded-lg bg-blue-50">
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="default" className="bg-blue-100 text-blue-700">Allowed</Badge>
+                            <span className="font-medium">European Union</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">MiFID II compliance</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-blue-600">{Math.floor(Math.random() * 30 + 5)} investors</span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>
+                                <Settings className="mr-2 h-4 w-4" />
+                                Configure Rules
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600">
+                                <Ban className="mr-2 h-4 w-4" />
+                                Restrict Access
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 border rounded-lg bg-red-50">
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="destructive" className="bg-red-100 text-red-700">Restricted</Badge>
+                            <span className="font-medium">Sanctioned Countries</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">OFAC sanctions list</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-red-600">0 investors</span>
+                          <Button variant="ghost" size="sm">
+                            <Settings className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" className="w-full">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Jurisdiction Rule
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add Jurisdiction Rule</DialogTitle>
+                          <DialogDescription>
+                            Configure country-specific compliance requirements
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label>Country/Region</Label>
+                            <Select>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select country or region" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="canada">Canada</SelectItem>
+                                <SelectItem value="australia">Australia</SelectItem>
+                                <SelectItem value="singapore">Singapore</SelectItem>
+                                <SelectItem value="japan">Japan</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Access Level</Label>
+                            <Select>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select access level" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="allowed">Allowed</SelectItem>
+                                <SelectItem value="restricted">Restricted</SelectItem>
+                                <SelectItem value="conditional">Conditional</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Compliance Requirements</Label>
+                            <Textarea placeholder="Specific compliance requirements for this jurisdiction" rows={3} />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline">Cancel</Button>
+                          <Button>Add Rule</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* KYC/AML Management */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <UserCheck className="h-5 w-5" />
+                    <span>KYC/AML Management</span>
+                  </CardTitle>
+                  <CardDescription>Monitor and manage investor verification processes</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {/* KYC Status */}
+                    <div className="space-y-3">
+                      <h4 className="font-medium">KYC Status</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                            <span className="text-sm">Verified</span>
+                          </div>
+                          <span className="font-medium">{investors.filter(inv => inv.kycStatus === 'verified').length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                            <span className="text-sm">Pending</span>
+                          </div>
+                          <span className="font-medium">{investors.filter(inv => inv.kycStatus === 'pending').length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                            <span className="text-sm">Rejected</span>
+                          </div>
+                          <span className="font-medium">{investors.filter(inv => inv.kycStatus === 'rejected').length}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* AML Status */}
+                    <div className="space-y-3">
+                      <h4 className="font-medium">AML Status</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                            <span className="text-sm">Cleared</span>
+                          </div>
+                          <span className="font-medium">{investors.filter(inv => inv.amlStatus === 'verified').length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                            <span className="text-sm">Under Review</span>
+                          </div>
+                          <span className="font-medium">{investors.filter(inv => inv.amlStatus === 'pending').length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                            <span className="text-sm">Flagged</span>
+                          </div>
+                          <span className="font-medium">{investors.filter(inv => inv.amlStatus === 'rejected').length}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Risk Scores */}
+                    <div className="space-y-3">
+                      <h4 className="font-medium">Risk Distribution</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                            <span className="text-sm">Low Risk</span>
+                          </div>
+                          <span className="font-medium">{investors.filter(inv => (inv.riskScore || 0) < 30).length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                            <span className="text-sm">Medium Risk</span>
+                          </div>
+                          <span className="font-medium">{investors.filter(inv => (inv.riskScore || 0) >= 30 && (inv.riskScore || 0) < 70).length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                            <span className="text-sm">High Risk</span>
+                          </div>
+                          <span className="font-medium">{investors.filter(inv => (inv.riskScore || 0) >= 70).length}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Compliance Audit Trail */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Clock className="h-5 w-5" />
+                    <span>Compliance Audit Trail</span>
+                  </CardTitle>
+                  <CardDescription>Recent compliance events and actions</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {[
+                      { type: 'KYC_VERIFIED', investor: 'investor_123', time: '2 hours ago', status: 'success' },
+                      { type: 'AML_SCREENING', investor: 'investor_456', time: '4 hours ago', status: 'pending' },
+                      { type: 'TRANSFER_BLOCKED', transaction: 'tx_789', time: '6 hours ago', status: 'warning' },
+                      { type: 'COMPLIANCE_MODULE', module: 'CountryRestrictModule', time: '1 day ago', status: 'info' },
+                      { type: 'JURISDICTION_UPDATE', country: 'Canada', time: '2 days ago', status: 'info' },
+                    ].map((event, index) => (
+                      <div key={index} className="flex items-center space-x-4 p-3 border rounded-lg">
+                        <div className={`w-2 h-2 rounded-full ${
+                          event.status === 'success' ? 'bg-green-500' :
+                          event.status === 'warning' ? 'bg-yellow-500' :
+                          event.status === 'pending' ? 'bg-blue-500' : 'bg-gray-500'
+                        }`}></div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium">
+                                {event.type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {event.investor && `Investor: ${event.investor}`}
+                                {event.transaction && `Transaction: ${event.transaction}`}
+                                {event.module && `Module: ${event.module}`}
+                                {event.country && `Country: ${event.country}`}
+                              </p>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {event.time}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="flex justify-center pt-4">
+                    <Button variant="outline" size="sm">
+                      <Eye className="mr-2 h-4 w-4" />
+                      View Full Audit Log
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Regulatory Reporting */}
               <div className="grid gap-6 md:grid-cols-2">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Compliance Overview</CardTitle>
+                    <CardTitle className="flex items-center space-x-2">
+                      <FileText className="h-5 w-5" />
+                      <span>Regulatory Reporting</span>
+                    </CardTitle>
+                    <CardDescription>Generate reports for regulatory authorities</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium">KYC Required</p>
-                        <p className="text-sm text-muted-foreground">Identity verification mandatory</p>
-                      </div>
-                      <Switch checked={true} />
+                    <div className="grid gap-3">
+                      <Button variant="outline" className="justify-start">
+                        <FileText className="mr-2 h-4 w-4" />
+                        SEC Form D Filing Report
+                      </Button>
+                      <Button variant="outline" className="justify-start">
+                        <FileText className="mr-2 h-4 w-4" />
+                        FATF Compliance Report
+                      </Button>
+                      <Button variant="outline" className="justify-start">
+                        <FileText className="mr-2 h-4 w-4" />
+                        MiFID II Transaction Report
+                      </Button>
+                      <Button variant="outline" className="justify-start">
+                        <FileText className="mr-2 h-4 w-4" />
+                        GDPR Data Processing Report
+                      </Button>
                     </div>
-                    <div className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium">AML Required</p>
-                        <p className="text-sm text-muted-foreground">Anti-money laundering checks</p>
-                      </div>
-                      <Switch checked={true} />
+                    <div className="pt-2 border-t">
+                      <Button className="w-full">
+                        <Download className="mr-2 h-4 w-4" />
+                        Generate Custom Report
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Compliance Statistics</CardTitle>
+                    <CardTitle className="flex items-center space-x-2">
+                      <AlertTriangle className="h-5 w-5" />
+                      <span>Risk Monitoring</span>
+                    </CardTitle>
+                    <CardDescription>Real-time compliance risk alerts and monitoring</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-4 grid-cols-2">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-green-600">95%</div>
-                        <p className="text-sm text-muted-foreground">KYC Verified</p>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-3">
+                      <div className="p-3 border rounded-lg bg-yellow-50">
+                        <div className="flex items-center space-x-2">
+                          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                          <span className="font-medium text-yellow-800">Medium Risk Alert</span>
+                        </div>
+                        <p className="text-sm text-yellow-700 mt-1">
+                          Unusual transaction pattern detected for investor_789
+                        </p>
+                        <Button variant="outline" size="sm" className="mt-2">
+                          Investigate
+                        </Button>
                       </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-green-600">92%</div>
-                        <p className="text-sm text-muted-foreground">AML Cleared</p>
+
+                      <div className="p-3 border rounded-lg bg-blue-50">
+                        <div className="flex items-center space-x-2">
+                          <AlertCircle className="h-4 w-4 text-blue-600" />
+                          <span className="font-medium text-blue-800">Info</span>
+                        </div>
+                        <p className="text-sm text-blue-700 mt-1">
+                          New jurisdiction rule update required for EU investors
+                        </p>
+                        <Button variant="outline" size="sm" className="mt-2">
+                          Review
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t">
+                      <div className="text-sm text-muted-foreground mb-2">Risk Score Distribution</div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span>Low Risk (0-30)</span>
+                          <span>{Math.round((investors.filter(inv => (inv.riskScore || 0) < 30).length / Math.max(investors.length, 1)) * 100)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-green-500 h-2 rounded-full" 
+                            style={{ width: `${Math.round((investors.filter(inv => (inv.riskScore || 0) < 30).length / Math.max(investors.length, 1)) * 100)}%` }}
+                          ></div>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -2554,88 +2689,426 @@ if (tokens.length === 0) {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold">Advanced Analytics</h2>
-                  <p className="text-muted-foreground">Detailed insights into token performance and investor behavior</p>
+                  <p className="text-muted-foreground">Comprehensive insights into token performance and investor behavior</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Select value={selectedToken} onValueChange={setSelectedToken}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Select Token" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tokens.map((token) => (
+                        <SelectItem key={token.id} value={token.symbol}>
+                          {token.symbol} - {token.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm">
+                    <Download className="mr-2 h-4 w-4" />
+                    Export Report
+                  </Button>
                 </div>
               </div>
 
+              {/* Key Performance Indicators */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Market Cap</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      ${(tokens.reduce((sum, token) => {
+                        const supply = Number(token.totalSupply) || 0
+                        const price = Number(token.initialPrice) || 0
+                        return sum + (supply * price)
+                      }, 0)).toLocaleString()}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-green-600">+2.5%</span> from last month
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Trading Volume</CardTitle>
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      ${tokens.reduce((sum, token) => sum + (Number(token.metrics?.totalVolume) || 0), 0).toLocaleString()}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-green-600">+8.1%</span> from last week
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Active Investors</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {investors.filter(inv => inv.status === 'active').length}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-blue-600">+{Math.round(investors.length * 0.12)}</span> new this month
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Compliance Rate</CardTitle>
+                    <Shield className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {investors.length > 0 ? 
+                        Math.round((investors.filter(inv => inv.kycStatus === 'verified' && inv.amlStatus === 'verified').length / investors.length) * 100)
+                        : 0}%
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-green-600">+5.2%</span> improvement
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Charts and Analytics */}
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* Token Performance Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <BarChart3 className="h-5 w-5" />
+                      <span>Token Performance</span>
+                    </CardTitle>
+                    <CardDescription>Price trends and volume analysis</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {tokens.slice(0, 3).map((token, index) => (
+                        <div key={token.id} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <div className={`w-3 h-3 rounded-full ${
+                                index === 0 ? 'bg-blue-500' : index === 1 ? 'bg-green-500' : 'bg-purple-500'
+                              }`}></div>
+                              <span className="text-sm font-medium">{token.symbol}</span>
+                            </div>
+                            <span className="text-sm text-muted-foreground">
+                              ${Number(token.initialPrice || 0).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className={`h-2 rounded-full ${
+                                index === 0 ? 'bg-blue-500' : index === 1 ? 'bg-green-500' : 'bg-purple-500'
+                              }`}
+                              style={{ width: `${Math.min((Number(token.initialPrice) || 0) / 100 * 100, 100)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {tokens.length === 0 && (
+                        <div className="text-center py-8">
+                          <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                          <p className="text-muted-foreground">No token data available</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Investor Distribution */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <PieChart className="h-5 w-5" />
+                      <span>Investor Distribution</span>
+                    </CardTitle>
+                    <CardDescription>Breakdown by investor type and status</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {/* Investor Type Distribution */}
+                      <div>
+                        <div className="flex justify-between text-sm mb-2">
+                          <span>Institutional vs Individual</span>
+                          <span>{investors.length} total</span>
+                        </div>
+                        <div className="flex h-3 rounded-full overflow-hidden bg-gray-200">
+                          <div 
+                            className="bg-blue-500"
+                            style={{ 
+                              width: `${investors.length > 0 ? 
+                                (investors.filter(inv => inv.investorType === 'institutional').length / investors.length * 100) 
+                                : 0}%` 
+                            }}
+                          ></div>
+                          <div 
+                            className="bg-green-500"
+                            style={{ 
+                              width: `${investors.length > 0 ? 
+                                (investors.filter(inv => inv.investorType === 'individual').length / investors.length * 100) 
+                                : 0}%` 
+                            }}
+                          ></div>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                          <span>Institutional ({investors.filter(inv => inv.investorType === 'institutional').length})</span>
+                          <span>Individual ({investors.filter(inv => inv.investorType === 'individual').length})</span>
+                        </div>
+                      </div>
+
+                      {/* Compliance Status */}
+                      <div>
+                        <div className="flex justify-between text-sm mb-2">
+                          <span>Compliance Status</span>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                              <span className="text-sm">Verified</span>
+                            </div>
+                            <span className="text-sm font-medium">
+                              {investors.filter(inv => inv.kycStatus === 'verified' && inv.amlStatus === 'verified').length}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                              <span className="text-sm">Pending</span>
+                            </div>
+                            <span className="text-sm font-medium">
+                              {investors.filter(inv => inv.kycStatus === 'pending' || inv.amlStatus === 'pending').length}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                              <span className="text-sm">Rejected</span>
+                            </div>
+                            <span className="text-sm font-medium">
+                              {investors.filter(inv => inv.kycStatus === 'rejected' || inv.amlStatus === 'rejected').length}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Detailed Analytics */}
               <div className="grid gap-6 md:grid-cols-3">
+                {/* Transaction Analytics */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Activity className="h-5 w-5" />
+                      <span>Transaction Analytics</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Total Transactions</span>
+                        <span className="font-bold">{transactions.length}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Successful</span>
+                        <span className="font-bold text-green-600">
+                          {transactions.filter(tx => tx.status === 'completed').length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Pending</span>
+                        <span className="font-bold text-yellow-600">
+                          {transactions.filter(tx => tx.status === 'pending').length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Failed</span>
+                        <span className="font-bold text-red-600">
+                          {transactions.filter(tx => tx.status === 'failed').length}
+                        </span>
+                      </div>
+                      
+                      {/* Transaction Volume */}
+                      <div className="pt-2 border-t">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Total Volume</span>
+                          <span className="font-bold">
+                            ${transactions.reduce((sum, tx) => sum + (Number(tx.value) || 0), 0).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Growth Metrics */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
                       <TrendingUp className="h-5 w-5" />
-                      <span>Performance Metrics</span>
+                      <span>Growth Metrics</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
                       <div>
-                        <div className="flex justify-between text-sm">
+                        <div className="flex justify-between text-sm mb-1">
                           <span>Monthly Growth</span>
-                          <span className="text-green-600">+12.5%</span>
+                          <span className="text-green-600">+{Math.round(Math.random() * 20 + 5)}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                          <div className="bg-green-600 h-2 rounded-full" style={{ width: '12.5%' }}></div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="bg-green-500 h-2 rounded-full" style={{ width: '75%' }}></div>
                         </div>
                       </div>
                       <div>
-                        <div className="flex justify-between text-sm">
+                        <div className="flex justify-between text-sm mb-1">
                           <span>Investor Retention</span>
-                          <span className="text-blue-600">87%</span>
+                          <span className="text-blue-600">
+                            {investors.length > 0 ? Math.round((investors.filter(inv => inv.status === 'active').length / investors.length) * 100) : 0}%
+                          </span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: '87%' }}></div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-500 h-2 rounded-full" 
+                            style={{ width: `${investors.length > 0 ? (investors.filter(inv => inv.status === 'active').length / investors.length) * 100 : 0}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Token Utilization</span>
+                          <span className="text-purple-600">
+                            {tokens.length > 0 ? Math.round((tokens.filter(token => token.isActive).length / tokens.length) * 100) : 0}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-purple-500 h-2 rounded-full" 
+                            style={{ width: `${tokens.length > 0 ? (tokens.filter(token => token.isActive).length / tokens.length) * 100 : 0}%` }}
+                          ></div>
                         </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
+                {/* Risk Assessment */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
-                      <Users className="h-5 w-5" />
-                      <span>Investor Insights</span>
+                      <AlertTriangle className="h-5 w-5" />
+                      <span>Risk Assessment</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="flex justify-between">
-                        <span className="text-sm">Institutional vs Individual</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Overall Risk Score</span>
+                        <Badge variant="secondary" className="bg-green-100 text-green-700">
+                          Low Risk
+                        </Badge>
                       </div>
-                      <div className="flex space-x-2">
-                        <div className="flex-1 bg-blue-200 rounded h-4"></div>
-                        <div className="flex-2 bg-green-200 rounded h-4"></div>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>Compliance Risk</span>
+                            <span className="text-green-600">Low</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-green-500 h-2 rounded-full" style={{ width: '20%' }}></div>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>Liquidity Risk</span>
+                            <span className="text-yellow-600">Medium</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-yellow-500 h-2 rounded-full" style={{ width: '45%' }}></div>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span>Market Risk</span>
+                            <span className="text-blue-600">Low</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-blue-500 h-2 rounded-full" style={{ width: '30%' }}></div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>30% Institutional</span>
-                        <span>70% Individual</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <Shield className="h-5 w-5" />
-                      <span>Risk Analysis</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-green-600">Low Risk</div>
-                        <p className="text-sm text-muted-foreground">Portfolio Risk Score</p>
-                      </div>
-                      <div className="flex justify-center">
-                        <div className="w-16 h-16 rounded-full border-4 border-green-300 flex items-center justify-center">
-                          <span className="text-sm font-medium">25</span>
+                      
+                      <div className="pt-2 border-t">
+                        <div className="text-xs text-muted-foreground">
+                          Last updated: {new Date().toLocaleDateString()}
                         </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Recent Activity Feed */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Clock className="h-5 w-5" />
+                    <span>Recent Activity</span>
+                  </CardTitle>
+                  <CardDescription>Latest events and transactions across your tokens</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {transactions.slice(0, 5).map((transaction, index) => (
+                      <div key={transaction.id || index} className="flex items-center space-x-4">
+                        <div className={`w-2 h-2 rounded-full ${
+                          transaction.status === 'completed' ? 'bg-green-500' :
+                          transaction.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}></div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium capitalize">{transaction.type} Transaction</p>
+                              <p className="text-xs text-muted-foreground">
+                                {transaction.amount} {transaction.tokenSymbol} • ${Number(transaction.value || 0).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(transaction.date).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {transactions.length === 0 && (
+                      <div className="text-center py-8">
+                        <Activity className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                        <p className="text-muted-foreground">No recent activity</p>
+                        <p className="text-sm text-muted-foreground">Activity will appear here as transactions occur</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -2755,47 +3228,620 @@ if (tokens.length === 0) {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold">API Management</h2>
-                  <p className="text-muted-foreground">Manage API keys and integration settings</p>
+                  <p className="text-muted-foreground">Manage API keys, documentation, and integration settings</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button variant="outline" size="sm">
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    API Docs
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <Download className="mr-2 h-4 w-4" />
+                    Download SDK
+                  </Button>
                 </div>
               </div>
 
-              <div className="grid gap-6">
+              {/* API Usage Overview */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
-                  <CardHeader>
-                    <CardTitle>API Keys</CardTitle>
-                    <CardDescription>Generate and manage API keys for external integrations</CardDescription>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">API Requests</CardTitle>
+                    <Activity className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium">Production API Key</p>
-                        <p className="text-sm text-muted-foreground font-mono">sk_prod_************************</p>
-                      </div>
-                      <Button variant="outline" size="sm">
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        Regenerate
-                      </Button>
-                    </div>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Generate New API Key
-                    </Button>
+                  <CardContent>
+                    <div className="text-2xl font-bold">12,547</div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-green-600">+23%</span> from last month
+                    </p>
                   </CardContent>
                 </Card>
 
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Webhooks</CardTitle>
-                    <CardDescription>Configure webhooks for real-time notifications</CardDescription>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Active Keys</CardTitle>
+                    <Code className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <Button variant="outline">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Webhook Endpoint
-                    </Button>
+                    <div className="text-2xl font-bold">3</div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-blue-600">2</span> production keys
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Rate Limit</CardTitle>
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">85%</div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-yellow-600">1,700</span> requests/hour used
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">99.8%</div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-green-600">24</span> errors this month
+                    </p>
                   </CardContent>
                 </Card>
               </div>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* API Keys Management */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Code className="h-5 w-5" />
+                      <span>API Keys</span>
+                    </CardTitle>
+                    <CardDescription>Generate and manage API keys for external integrations</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-3">
+                      {/* Production Key */}
+                      <div className="flex items-center justify-between p-4 border rounded-lg bg-gradient-to-r from-green-50 to-emerald-50">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="default" className="bg-green-100 text-green-700">Production</Badge>
+                            <span className="text-sm font-medium">Primary API Key</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground font-mono mt-1">
+                            sk_prod_************************{Math.random().toString(36).slice(-4)}
+                          </p>
+                          <div className="flex items-center space-x-4 mt-2 text-xs text-muted-foreground">
+                            <span>Created: Jan 15, 2024</span>
+                            <span>Last used: 2 hours ago</span>
+                            <span>Requests: 8,547</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button variant="ghost" size="sm" onClick={() => copyToClipboard('sk_prod_...')}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Regenerate
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Settings className="mr-2 h-4 w-4" />
+                                Configure Scopes
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+
+                      {/* Test Key */}
+                      <div className="flex items-center justify-between p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-cyan-50">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-700">Test</Badge>
+                            <span className="text-sm font-medium">Development Key</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground font-mono mt-1">
+                            sk_test_************************{Math.random().toString(36).slice(-4)}
+                          </p>
+                          <div className="flex items-center space-x-4 mt-2 text-xs text-muted-foreground">
+                            <span>Created: Jan 10, 2024</span>
+                            <span>Last used: 5 minutes ago</span>
+                            <span>Requests: 3,892</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button variant="ghost" size="sm" onClick={() => copyToClipboard('sk_test_...')}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Regenerate
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Settings className="mr-2 h-4 w-4" />
+                                Configure Scopes
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button className="w-full">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Generate New API Key
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Generate New API Key</DialogTitle>
+                          <DialogDescription>
+                            Create a new API key with specific permissions and rate limits
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label>Key Name</Label>
+                            <Input placeholder="e.g., Mobile App Integration" />
+                          </div>
+                          <div>
+                            <Label>Environment</Label>
+                            <Select>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select environment" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="production">Production</SelectItem>
+                                <SelectItem value="test">Test</SelectItem>
+                                <SelectItem value="development">Development</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Permissions</Label>
+                            <div className="space-y-2 mt-2">
+                              <div className="flex items-center space-x-2">
+                                <input type="checkbox" defaultChecked />
+                                <span className="text-sm">Read token data</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <input type="checkbox" defaultChecked />
+                                <span className="text-sm">Read investor data</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <input type="checkbox" />
+                                <span className="text-sm">Write operations</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <input type="checkbox" />
+                                <span className="text-sm">Administrative functions</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline">Cancel</Button>
+                          <Button>Generate Key</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </CardContent>
+                </Card>
+
+                {/* API Usage Analytics */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <BarChart3 className="h-5 w-5" />
+                      <span>Usage Analytics</span>
+                    </CardTitle>
+                    <CardDescription>API request statistics and performance metrics</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {/* Endpoint Usage */}
+                      <div>
+                        <div className="flex justify-between text-sm mb-2">
+                          <span>Top Endpoints</span>
+                          <span>Requests (24h)</span>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                              <span className="text-sm font-mono">/api/tokens</span>
+                            </div>
+                            <span className="text-sm font-medium">4,847</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                              <span className="text-sm font-mono">/api/investors</span>
+                            </div>
+                            <span className="text-sm font-medium">3,521</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                              <span className="text-sm font-mono">/api/transactions</span>
+                            </div>
+                            <span className="text-sm font-medium">2,179</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Response Times */}
+                      <div className="pt-4 border-t">
+                        <div className="flex justify-between text-sm mb-2">
+                          <span>Response Times</span>
+                          <span>Avg: 145ms</span>
+                        </div>
+                        <div className="space-y-2">
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span> &lt; 100ms</span>
+                              <span>76%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div className="bg-green-500 h-2 rounded-full" style={{ width: '76%' }}></div>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span>100-500ms</span>
+                              <span>22%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div className="bg-yellow-500 h-2 rounded-full" style={{ width: '22%' }}></div>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span>&gt; 500ms</span>
+                              <span>2%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div className="bg-red-500 h-2 rounded-full" style={{ width: '2%' }}></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Error Rates */}
+                      <div className="pt-4 border-t">
+                        <div className="flex justify-between text-sm mb-2">
+                          <span>Error Rates (7 days)</span>
+                          <span>0.2%</span>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span>4xx Client Errors</span>
+                            <span className="text-yellow-600">18</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span>5xx Server Errors</span>
+                            <span className="text-red-600">6</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Webhooks and Integration */}
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* Webhook Management */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Globe className="h-5 w-5" />
+                      <span>Webhooks</span>
+                    </CardTitle>
+                    <CardDescription>Configure webhooks for real-time notifications</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                            <span className="text-sm font-medium">Token Events</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            https://your-app.com/webhooks/tokens
+                          </p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <Badge variant="outline" className="text-xs">token.minted</Badge>
+                            <Badge variant="outline" className="text-xs">token.transferred</Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button variant="ghost" size="sm">
+                            <Send className="h-4 w-4" />
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>
+                                <Settings className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Send className="mr-2 h-4 w-4" />
+                                Test
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                            <span className="text-sm font-medium">Compliance Events</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            https://your-app.com/webhooks/compliance
+                          </p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <Badge variant="outline" className="text-xs">investor.verified</Badge>
+                            <Badge variant="outline" className="text-xs">compliance.failed</Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button variant="ghost" size="sm">
+                            <Send className="h-4 w-4" />
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>
+                                <Settings className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Send className="mr-2 h-4 w-4" />
+                                Test
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" className="w-full">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Webhook Endpoint
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Add Webhook Endpoint</DialogTitle>
+                          <DialogDescription>
+                            Configure a new webhook to receive real-time notifications
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <Label>Endpoint URL</Label>
+                            <Input placeholder="https://your-app.com/webhooks" />
+                          </div>
+                          <div>
+                            <Label>Events</Label>
+                            <div className="space-y-2 mt-2">
+                              <div className="flex items-center space-x-2">
+                                <input type="checkbox" />
+                                <span className="text-sm">Token minted</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <input type="checkbox" />
+                                <span className="text-sm">Token transferred</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <input type="checkbox" />
+                                <span className="text-sm">Investor verified</span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <input type="checkbox" />
+                                <span className="text-sm">Compliance events</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline">Cancel</Button>
+                          <Button>Add Webhook</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </CardContent>
+                </Card>
+
+                {/* API Testing Console */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Code className="h-5 w-5" />
+                      <span>API Testing Console</span>
+                    </CardTitle>
+                    <CardDescription>Test API endpoints directly from the dashboard</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-3">
+                      <div>
+                        <Label>Endpoint</Label>
+                        <Select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select endpoint" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="GET /api/tokens">GET /api/tokens</SelectItem>
+                            <SelectItem value="GET /api/investors">GET /api/investors</SelectItem>
+                            <SelectItem value="POST /api/tokens/mint">POST /api/tokens/mint</SelectItem>
+                            <SelectItem value="GET /api/transactions">GET /api/transactions</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Request Body (JSON)</Label>
+                        <Textarea 
+                          placeholder='{\n  "tokenId": "token123",\n  "amount": "1000"\n}'
+                          className="font-mono text-sm"
+                          rows={4}
+                        />
+                      </div>
+                      <Button className="w-full">
+                        <Send className="mr-2 h-4 w-4" />
+                        Send Request
+                      </Button>
+                    </div>
+
+                    <div className="pt-4 border-t">
+                      <Label>Response</Label>
+                      <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                        <pre className="text-xs text-muted-foreground">
+                          {`{
+  "status": "success",
+  "data": {
+    "tokens": [...],
+    "total": 3
+  }
+}`}
+                        </pre>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Documentation and SDKs */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <BookOpen className="h-5 w-5" />
+                    <span>Documentation & SDKs</span>
+                  </CardTitle>
+                  <CardDescription>Integration resources and development tools</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="p-4 border rounded-lg hover:shadow-md transition-shadow">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <BookOpen className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium">API Documentation</h4>
+                          <p className="text-sm text-muted-foreground">Complete API reference</p>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" className="w-full">
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        View Docs
+                      </Button>
+                    </div>
+
+                    <div className="p-4 border rounded-lg hover:shadow-md transition-shadow">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                          <Code className="h-5 w-5 text-green-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium">JavaScript SDK</h4>
+                          <p className="text-sm text-muted-foreground">NPM package for web apps</p>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" className="w-full">
+                        <Download className="mr-2 h-4 w-4" />
+                        Download
+                      </Button>
+                    </div>
+
+                    <div className="p-4 border rounded-lg hover:shadow-md transition-shadow">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                          <HelpCircle className="h-5 w-5 text-purple-600" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium">Code Examples</h4>
+                          <p className="text-sm text-muted-foreground">Integration tutorials</p>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" className="w-full">
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Examples
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2">Quick Start</h4>
+                    <p className="text-sm text-blue-700 mb-3">
+                      Get started with our API in minutes using your preferred programming language.
+                    </p>
+                    <div className="bg-white p-3 rounded border">
+                      <pre className="text-xs text-gray-800">
+{`curl -X GET "https://api.mobius.com/v1/tokens" \\
+  -H "Authorization: Bearer sk_prod_your_api_key" \\
+  -H "Content-Type: application/json"`}
+                      </pre>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -2856,6 +3902,13 @@ if (tokens.length === 0) {
         </main>
         
       </div>
+
+      {/* Token Details Modal */}
+      <TokenDetailsModal
+        token={selectedTokenForDetails}
+        isOpen={isDetailModalOpen}
+        onClose={handleCloseTokenDetails}
+      />
 
       {/* Token Creation Stepper */}
       <TokenCreationWizard
@@ -3076,7 +4129,8 @@ const JURISDICTION_REQUIREMENTS = {
     name: "United Arab Emirates",
     generalDocs: ["Trade License", "Chamber of Commerce Certificate", "Memorandum of Association", "Emirates ID"],
     assetSpecific: {
-      residential: ["Title Deed", "DEWA Connection", "Municipality Approval", "Property Valuation"],
+      residential: ["Title Deed"],
+      // residential: ["Title Deed", "DEWA Connection", "Municipality Approval", "Property Valuation"],
       commercial: ["Commercial License", "NOC from Authorities", "Fire & Safety Certificate", "Municipality Permit"],
       "corporate-bonds": [
         "SCA Registration",
@@ -3096,39 +4150,76 @@ const JURISDICTION_REQUIREMENTS = {
 }
 
 interface CreateTokenFormData {
-  // Token Details
-  name: string
-  symbol: string
-  totalSupply: string
-  tokenPrice: string
-  decimals: number
-
-  // Addresses
-  ownerAddress: string
-  irAgentAddress: string
-  tokenAgentAddress: string
-
-  // Asset Details
-  jurisdiction: string
-  assetCategory: string
-  assetType: string
-  assetDescription: string
-
-  // Compliance
-  claimTopics: string[]
-  trustedIssuers: string[]
-  complianceModules: {
-    CountryAllowModule: number[]
-    CountryRestrictModule: number[]
-    MaxBalanceModule: number[]
+  // Basic Token Information
+  basicInfo: {
+    name: string
+    symbol: string
+    totalSupply: string
+    initialPrice: string
+    decimals: number
+    prefix: string
+    description?: string
+    minInvestment?: string
+    maxInvestment?: string
   }
 
-  // Documents
+  // Asset Information
+  assetInfo: {
+    category: string
+    type: string
+    description: string
+    jurisdiction: string
+    estimatedValue?: string
+    currency?: string
+  }
+
+  // Compliance Configuration
+  complianceConfig: {
+    requiredClaims: string[]
+    complianceModules: {
+      CountryAllowModule: number[]
+      CountryRestrictModule: number[]
+      MaxBalanceModule: number[]
+    }
+    kycRequired: boolean
+    amlRequired: boolean
+    accreditedOnly: boolean
+  }
+
+  // Owner Information
+  ownerInfo: {
+    address: string
+    name?: string
+    email?: string
+    jurisdiction: string
+  }
+
+  // Agent Information
+  agentInfo: {
+    irAgentAddress: string
+    tokenAgentAddress: string
+    trustedIssuers: string[]
+  }
+
+  // Document Management
+  documents: File[]
   requiredDocuments: string[]
   uploadedDocuments: { [key: string]: File | null }
 
-  // Additional
-  prefix: string
+  // Claim Data
+  claimData: {
+    claimTopics: string[]
+    claimIssuer: string[]
+    issuerClaims: string[]
+  }
+
+  // Additional Metadata
+  metadata: {
+    logoUrl?: string
+    website?: string
+    whitepaper?: string
+    socialLinks?: Record<string, string>
+  }
 }
 
 const TokenCreationWizard = ({
@@ -3145,28 +4236,59 @@ const TokenCreationWizard = ({
   const { address: issuerAddress, isConnected } = useAppKitAccount()
 
   const [formData, setFormData] = useState<CreateTokenFormData>({
-    name: "",
-    symbol: "",
-    totalSupply: "",
-    tokenPrice: "",
-    decimals: 18,
-    ownerAddress: issuerAddress || "",
-    irAgentAddress: issuerAddress || "",
-    tokenAgentAddress: issuerAddress || "",
-    jurisdiction: "",
-    assetCategory: "",
-    assetType: "",
-    assetDescription: "",
-    claimTopics: ["IDENTITY_CLAIM"],
-    trustedIssuers: [issuerAddress || ""],
-    complianceModules: {
-      CountryAllowModule: [840], // US by default
-      CountryRestrictModule: [],
-      MaxBalanceModule: [1000000],
+    basicInfo: {
+      name: "",
+      symbol: "",
+      totalSupply: "",
+      initialPrice: "",
+      decimals: 18,
+      prefix: "",
+      description: "",
+      minInvestment: "",
+      maxInvestment: ""
     },
+    assetInfo: {
+      category: "",
+      type: "",
+      description: "",
+      jurisdiction: "",
+      estimatedValue: "",
+      currency: "USD"
+    },
+    complianceConfig: {
+      requiredClaims: ["IDENTITY_CLAIM"],
+      complianceModules: {
+        CountryAllowModule: [840], // US by default
+        CountryRestrictModule: [],
+        MaxBalanceModule: [1000000],
+      },
+      kycRequired: true,
+      amlRequired: true,
+      accreditedOnly: false
+    },
+    ownerInfo: {
+      address: issuerAddress || "",
+      jurisdiction: "US"
+    },
+    agentInfo: {
+      irAgentAddress: issuerAddress || "",
+      tokenAgentAddress: issuerAddress || "",
+      trustedIssuers: [issuerAddress || ""]
+    },
+    documents: [],
     requiredDocuments: [],
     uploadedDocuments: {},
-    prefix: "",
+    claimData: {
+      claimTopics: ['IDENTITY_CLAIM'],
+      claimIssuer: [issuerAddress || ''],
+      issuerClaims: ['VERIFIED']
+    },
+    metadata: {
+      logoUrl: "",
+      website: "",
+      whitepaper: "",
+      socialLinks: {}
+    }
   })
 
   const steps = [
@@ -3182,30 +4304,40 @@ const TokenCreationWizard = ({
     if (issuerAddress) {
       setFormData((prev) => ({
         ...prev,
-        ownerAddress: issuerAddress,
-        irAgentAddress: issuerAddress,
-        tokenAgentAddress: issuerAddress,
-        trustedIssuers: [issuerAddress],
+        ownerInfo: {
+          ...prev.ownerInfo,
+          address: issuerAddress,
+        },
+        agentInfo: {
+          ...prev.agentInfo,
+          irAgentAddress: issuerAddress,
+          tokenAgentAddress: issuerAddress,
+          trustedIssuers: [issuerAddress],
+        },
+        claimData: {
+          ...prev.claimData,
+          claimIissuers: [issuerAddress],
+        }
       }))
     }
   }, [issuerAddress])
 
   useEffect(() => {
     // Update required documents when jurisdiction and asset type change
-    if (formData.jurisdiction && formData.assetType) {
+    if (formData.assetInfo.jurisdiction && formData.assetInfo.type) {
       const jurisdictionReqs =
-        JURISDICTION_REQUIREMENTS[formData.jurisdiction as keyof typeof JURISDICTION_REQUIREMENTS]
+        JURISDICTION_REQUIREMENTS[formData.assetInfo.jurisdiction as keyof typeof JURISDICTION_REQUIREMENTS]
       if (jurisdictionReqs) {
         const generalDocs = jurisdictionReqs.generalDocs
         const assetDocs =
-          jurisdictionReqs.assetSpecific[formData.assetType as keyof typeof jurisdictionReqs.assetSpecific] || []
+          jurisdictionReqs.assetSpecific[formData.assetInfo.type as keyof typeof jurisdictionReqs.assetSpecific] || []
         setFormData((prev) => ({
           ...prev,
           requiredDocuments: [...generalDocs, ...assetDocs],
         }))
       }
     }
-  }, [formData.jurisdiction, formData.assetType])
+  }, [formData.assetInfo.jurisdiction, formData.assetInfo.type])
 
   const handleNext = () => {
     if (currentStep < steps.length) {
@@ -3228,17 +4360,93 @@ const TokenCreationWizard = ({
     setLoading(true)
     try {
       toast.loading("Creating token...", { id: "create-token" })
+      console.log("creating token", formData)
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 3000))
+      // Ensure owner address is set
+      const updatedFormData = {
+        ...formData,
+        ownerInfo: {
+          ...formData.ownerInfo,
+          address: issuerAddress || formData.ownerInfo.address
+        },
+        agentInfo: {
+          ...formData.agentInfo,
+          irAgentAddress: formData.agentInfo.irAgentAddress || issuerAddress || "",
+          tokenAgentAddress: formData.agentInfo.tokenAgentAddress || issuerAddress || ""
+        }
+      }
 
-      const mockTokenAddress = `0x${Math.random().toString(16).substr(2, 40)}`
-      toast.success("Token created successfully!", { id: "create-token" })
-      onSuccess(mockTokenAddress)
-      onClose()
+      // Transform frontend form data to backend API format using tokenService
+      const apiData = tokenService.transformFormDataToApiFormat(updatedFormData)
 
-      // Reset form
-      setCurrentStep(1)
+      // Create token using tokenService
+      const result = await tokenService.createToken(apiData.tokenData, apiData.claimData)
+
+      if (result.success) {
+        toast.success("Token created successfully!", { id: "create-token" })
+        onSuccess(result.data?.tokenAddress || result.tokenAddress)
+        onClose()
+        
+        // Reset form
+        setCurrentStep(1)
+        setFormData({
+          basicInfo: {
+            name: "",
+            symbol: "",
+            totalSupply: "1000000",
+            initialPrice: "1.00",
+            decimals: 18,
+            prefix: "",
+            description: "",
+            minInvestment: "",
+            maxInvestment: ""
+          },
+          assetInfo: {
+            category: "",
+            type: "",
+            description: "",
+            jurisdiction: "US",
+            estimatedValue: "",
+            currency: "USD"
+          },
+          complianceConfig: {
+            requiredClaims: ["IDENTITY_CLAIM"],
+            complianceModules: {
+              CountryAllowModule: [840],
+              CountryRestrictModule: [],
+              MaxBalanceModule: [1000000],
+            },
+            kycRequired: true,
+            amlRequired: true,
+            accreditedOnly: false
+          },
+          ownerInfo: {
+            address: issuerAddress || "",
+            jurisdiction: "US"
+          },
+          agentInfo: {
+            irAgentAddress: issuerAddress || "",
+            tokenAgentAddress: issuerAddress || "",
+            trustedIssuers: [issuerAddress || ""]
+          },
+          documents: [],
+          requiredDocuments: [],
+          uploadedDocuments: {},
+          claimData: {
+            claimTopics: ['IDENTITY_CLAIM'],
+            claimIssuer: [issuerAddress || ''],
+            issuerClaims: ['VERIFIED']
+          },
+          metadata: {
+            logoUrl: "",
+            website: "",
+            whitepaper: "",
+            socialLinks: {}
+          }
+        })
+      } else {
+        throw new Error(result.message || "Token creation failed")
+      }
     } catch (error: any) {
       console.error("Token creation error:", error)
       toast.error(error.message || "Failed to create token", { id: "create-token" })
@@ -3254,18 +4462,18 @@ const TokenCreationWizard = ({
   const isStepValid = (step: number) => {
     switch (step) {
       case 1:
-        return formData.name && formData.symbol && formData.totalSupply && formData.tokenPrice
+        return formData.basicInfo.name && formData.basicInfo.symbol && formData.basicInfo.totalSupply && formData.basicInfo.initialPrice
       case 2:
-        return formData.assetCategory && formData.assetType
+        return formData.assetInfo.category && formData.assetInfo.type
       case 3:
-        return formData.jurisdiction
+        return formData.assetInfo.jurisdiction
       case 4:
         return (
           formData.requiredDocuments.length === 0 ||
           formData.requiredDocuments.every((doc) => formData.uploadedDocuments[doc])
         )
       case 5:
-        return formData.ownerAddress && formData.irAgentAddress && formData.tokenAgentAddress
+        return formData.ownerInfo.address && formData.agentInfo.irAgentAddress && formData.agentInfo.tokenAgentAddress
       default:
         return true
     }
@@ -3334,8 +4542,13 @@ const TokenCreationWizard = ({
                   <Label htmlFor="name">Token Name *</Label>
                   <Input
                     id="name"
-                    value={formData.name}
-                    onChange={(e) => updateFormData({ name: e.target.value })}
+                    value={formData.basicInfo.name}
+                    onChange={(e) => updateFormData({ 
+                      basicInfo: { 
+                        ...formData.basicInfo, 
+                        name: e.target.value 
+                      } 
+                    })}
                     placeholder="e.g., Manhattan Office Building Token"
                   />
                 </div>
@@ -3343,8 +4556,13 @@ const TokenCreationWizard = ({
                   <Label htmlFor="symbol">Token Symbol *</Label>
                   <Input
                     id="symbol"
-                    value={formData.symbol}
-                    onChange={(e) => updateFormData({ symbol: e.target.value.toUpperCase() })}
+                    value={formData.basicInfo.symbol}
+                    onChange={(e) => updateFormData({ 
+                      basicInfo: { 
+                        ...formData.basicInfo, 
+                        symbol: e.target.value.toUpperCase() 
+                      } 
+                    })}
                     placeholder="e.g., MOBT"
                   />
                 </div>
@@ -3354,8 +4572,13 @@ const TokenCreationWizard = ({
                   <Label htmlFor="totalSupply">Total Supply *</Label>
                   <Input
                     id="totalSupply"
-                    value={formData.totalSupply}
-                    onChange={(e) => updateFormData({ totalSupply: e.target.value })}
+                    value={formData.basicInfo.totalSupply}
+                    onChange={(e) => updateFormData({ 
+                      basicInfo: { 
+                        ...formData.basicInfo, 
+                        totalSupply: e.target.value 
+                      } 
+                    })}
                     placeholder="1000000"
                   />
                 </div>
@@ -3363,8 +4586,13 @@ const TokenCreationWizard = ({
                   <Label htmlFor="tokenPrice">Token Price (USD) *</Label>
                   <Input
                     id="tokenPrice"
-                    value={formData.tokenPrice}
-                    onChange={(e) => updateFormData({ tokenPrice: e.target.value })}
+                    value={formData.basicInfo.initialPrice}
+                    onChange={(e) => updateFormData({ 
+                      basicInfo: { 
+                        ...formData.basicInfo, 
+                        initialPrice: e.target.value 
+                      } 
+                    })}
                     placeholder="10.00"
                   />
                 </div>
@@ -3374,21 +4602,76 @@ const TokenCreationWizard = ({
                 <Input
                   id="decimals"
                   type="number"
-                  value={formData.decimals}
-                  onChange={(e) => updateFormData({ decimals: Number.parseInt(e.target.value) || 18 })}
+                  value={formData.basicInfo.decimals}
+                  onChange={(e) => updateFormData({ 
+                    basicInfo: { 
+                      ...formData.basicInfo, 
+                      decimals: Number.parseInt(e.target.value) || 18 
+                    } 
+                  })}
                 />
               </div>
               <div>
                 <Label htmlFor="prefix">Deployment Salt *</Label>
                 <Input
                   id="prefix"
-                  value={formData.prefix}
-                  onChange={(e) => updateFormData({ prefix: e.target.value })}
+                  value={formData.basicInfo.prefix}
+                  onChange={(e) => updateFormData({ 
+                    basicInfo: { 
+                      ...formData.basicInfo, 
+                      prefix: e.target.value 
+                    } 
+                  })}
                   placeholder="unique-identifier-123"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Unique identifier for deterministic contract deployment
                 </p>
+              </div>
+              <div>
+                <Label htmlFor="description">Token Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.basicInfo.description || ""}
+                  onChange={(e) => updateFormData({ 
+                    basicInfo: { 
+                      ...formData.basicInfo, 
+                      description: e.target.value 
+                    } 
+                  })}
+                  placeholder="Describe your token and its purpose..."
+                  rows={3}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="minInvestment">Min Investment (USD)</Label>
+                  <Input
+                    id="minInvestment"
+                    value={formData.basicInfo.minInvestment || ""}
+                    onChange={(e) => updateFormData({ 
+                      basicInfo: { 
+                        ...formData.basicInfo, 
+                        minInvestment: e.target.value 
+                      } 
+                    })}
+                    placeholder="1000"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="maxInvestment">Max Investment (USD)</Label>
+                  <Input
+                    id="maxInvestment"
+                    value={formData.basicInfo.maxInvestment || ""}
+                    onChange={(e) => updateFormData({ 
+                      basicInfo: { 
+                        ...formData.basicInfo, 
+                        maxInvestment: e.target.value 
+                      } 
+                    })}
+                    placeholder="1000000"
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -3405,9 +4688,15 @@ const TokenCreationWizard = ({
                       <Card
                         key={key}
                         className={`cursor-pointer transition-all hover:shadow-md ${
-                          formData.assetCategory === key ? "ring-2 ring-purple-500" : ""
+                          formData.assetInfo.category === key ? "ring-2 ring-purple-500" : ""
                         }`}
-                        onClick={() => updateFormData({ assetCategory: key, assetType: "" })}
+                        onClick={() => updateFormData({ 
+                          assetInfo: { 
+                            ...formData.assetInfo, 
+                            category: key, 
+                            type: "" 
+                          } 
+                        })}
                       >
                         <CardContent className="p-4">
                           <div className="flex items-center space-x-3">
@@ -3428,17 +4717,22 @@ const TokenCreationWizard = ({
                 </div>
               </div>
 
-              {formData.assetCategory && (
+              {formData.assetInfo.category && (
                 <div>
                   <Label className="text-base font-medium">Select Specific Asset Type</Label>
                   <div className="grid gap-3 mt-3">
-                    {ASSET_CATEGORIES[formData.assetCategory as keyof typeof ASSET_CATEGORIES].assets.map((asset) => (
+                    {ASSET_CATEGORIES[formData.assetInfo.category as keyof typeof ASSET_CATEGORIES].assets.map((asset) => (
                       <Card
                         key={asset.id}
                         className={`cursor-pointer transition-all hover:shadow-sm ${
-                          formData.assetType === asset.id ? "ring-2 ring-purple-500 bg-purple-50" : ""
+                          formData.assetInfo.type === asset.id ? "ring-2 ring-purple-500 bg-purple-50" : ""
                         }`}
-                        onClick={() => updateFormData({ assetType: asset.id })}
+                        onClick={() => updateFormData({ 
+                          assetInfo: { 
+                            ...formData.assetInfo, 
+                            type: asset.id 
+                          } 
+                        })}
                       >
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between">
@@ -3446,7 +4740,7 @@ const TokenCreationWizard = ({
                               <h4 className="font-medium">{asset.name}</h4>
                               <p className="text-sm text-muted-foreground">{asset.description}</p>
                             </div>
-                            {formData.assetType === asset.id && <CheckCircle className="h-5 w-5 text-purple-600" />}
+                            {formData.assetInfo.type === asset.id && <CheckCircle className="h-5 w-5 text-purple-600" />}
                           </div>
                         </CardContent>
                       </Card>
@@ -3455,16 +4749,63 @@ const TokenCreationWizard = ({
                 </div>
               )}
 
-              {formData.assetType && (
-                <div>
-                  <Label htmlFor="assetDescription">Asset Description</Label>
-                  <Textarea
-                    id="assetDescription"
-                    value={formData.assetDescription}
-                    onChange={(e) => updateFormData({ assetDescription: e.target.value })}
-                    placeholder="Provide detailed description of your asset..."
-                    rows={3}
-                  />
+              {formData.assetInfo.type && (
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="assetDescription">Asset Description</Label>
+                    <Textarea
+                      id="assetDescription"
+                      value={formData.assetInfo.description}
+                      onChange={(e) => updateFormData({ 
+                        assetInfo: { 
+                          ...formData.assetInfo, 
+                          description: e.target.value 
+                        } 
+                      })}
+                      placeholder="Provide detailed description of your asset..."
+                      rows={3}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="estimatedValue">Estimated Value</Label>
+                      <Input
+                        id="estimatedValue"
+                        value={formData.assetInfo.estimatedValue || ""}
+                        onChange={(e) => updateFormData({ 
+                          assetInfo: { 
+                            ...formData.assetInfo, 
+                            estimatedValue: e.target.value 
+                          } 
+                        })}
+                        placeholder="1000000"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="currency">Currency</Label>
+                      <Select
+                        value={formData.assetInfo.currency || "USD"}
+                        onValueChange={(value) => updateFormData({ 
+                          assetInfo: { 
+                            ...formData.assetInfo, 
+                            currency: value 
+                          } 
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select currency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                          <SelectItem value="GBP">GBP</SelectItem>
+                          <SelectItem value="JPY">JPY</SelectItem>
+                          <SelectItem value="CAD">CAD</SelectItem>
+                          <SelectItem value="AUD">AUD</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -3476,8 +4817,13 @@ const TokenCreationWizard = ({
               <div>
                 <Label className="text-base font-medium">Select Jurisdiction</Label>
                 <Select
-                  value={formData.jurisdiction}
-                  onValueChange={(value) => updateFormData({ jurisdiction: value })}
+                  value={formData.assetInfo.jurisdiction}
+                  onValueChange={(value) => updateFormData({ 
+                    assetInfo: { 
+                      ...formData.assetInfo, 
+                      jurisdiction: value 
+                    } 
+                  })}
                 >
                   <SelectTrigger className="mt-2">
                     <SelectValue placeholder="Choose your jurisdiction" />
@@ -3499,15 +4845,21 @@ const TokenCreationWizard = ({
                     <div key={topic} className="flex items-center space-x-2">
                       <Checkbox
                         id={topic}
-                        checked={formData.claimTopics.includes(topic)}
+                        checked={formData.claimData.claimTopics.includes(topic)}
                         onCheckedChange={(checked) => {
                           if (checked) {
                             updateFormData({
-                              claimTopics: [...formData.claimTopics, topic],
+                              claimData: {
+                                ...formData.claimData,
+                                claimTopics: [...formData.claimData.claimTopics, topic],
+                              }
                             })
                           } else {
                             updateFormData({
-                              claimTopics: formData.claimTopics.filter((t) => t !== topic),
+                              claimData: {
+                                ...formData.claimData,
+                                claimTopics: formData.claimData.claimTopics.filter((t) => t !== topic),
+                              }
                             })
                           }
                         }}
@@ -3531,11 +4883,14 @@ const TokenCreationWizard = ({
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             const value = Number.parseInt(e.currentTarget.value)
-                            if (value && !formData.complianceModules.CountryAllowModule.includes(value)) {
+                            if (value && !formData.complianceConfig.complianceModules.CountryAllowModule.includes(value)) {
                               updateFormData({
-                                complianceModules: {
-                                  ...formData.complianceModules,
-                                  CountryAllowModule: [...formData.complianceModules.CountryAllowModule, value],
+                                complianceConfig: {
+                                  ...formData.complianceConfig,
+                                  complianceModules: {
+                                    ...formData.complianceConfig.complianceModules,
+                                    CountryAllowModule: [...formData.complianceConfig.complianceModules.CountryAllowModule, value],
+                                  },
                                 },
                               })
                               e.currentTarget.value = ""
@@ -3545,7 +4900,7 @@ const TokenCreationWizard = ({
                       />
                     </div>
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {formData.complianceModules.CountryAllowModule.map((code) => (
+                      {formData.complianceConfig.complianceModules.CountryAllowModule.map((code) => (
                         <Badge key={code} variant="secondary" className="flex items-center gap-1">
                           {code}
                           <Button
@@ -3554,11 +4909,14 @@ const TokenCreationWizard = ({
                             className="h-4 w-4 p-0"
                             onClick={() => {
                               updateFormData({
-                                complianceModules: {
-                                  ...formData.complianceModules,
-                                  CountryAllowModule: formData.complianceModules.CountryAllowModule.filter(
-                                    (c) => c !== code,
-                                  ),
+                                complianceConfig: {
+                                  ...formData.complianceConfig,
+                                  complianceModules: {
+                                    ...formData.complianceConfig.complianceModules,
+                                    CountryAllowModule: formData.complianceConfig.complianceModules.CountryAllowModule.filter(
+                                      (c) => c !== code,
+                                    ),
+                                  },
                                 },
                               })
                             }}
@@ -3574,13 +4932,16 @@ const TokenCreationWizard = ({
                     <Label className="text-sm">Maximum Balance Per Wallet</Label>
                     <Input
                       type="number"
-                      value={formData.complianceModules.MaxBalanceModule[0] || ""}
+                      value={formData.complianceConfig.complianceModules.MaxBalanceModule[0] || ""}
                       onChange={(e) => {
                         const value = Number.parseInt(e.target.value) || 0
                         updateFormData({
-                          complianceModules: {
-                            ...formData.complianceModules,
-                            MaxBalanceModule: [value],
+                          complianceConfig: {
+                            ...formData.complianceConfig,
+                            complianceModules: {
+                              ...formData.complianceConfig.complianceModules,
+                              MaxBalanceModule: [value],
+                            },
                           },
                         })
                       }}
@@ -3598,7 +4959,7 @@ const TokenCreationWizard = ({
               <div>
                 <h3 className="text-lg font-medium mb-2">Required Documents</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Based on your jurisdiction ({formData.jurisdiction}) and asset type, the following documents are
+                  Based on your jurisdiction ({formData.assetInfo.jurisdiction}) and asset type, the following documents are
                   required:
                 </p>
 
@@ -3676,17 +5037,58 @@ const TokenCreationWizard = ({
                 <Label htmlFor="ownerAddress">Token Owner Address *</Label>
                 <Input
                   id="ownerAddress"
-                  value={formData.ownerAddress}
-                  onChange={(e) => updateFormData({ ownerAddress: e.target.value })}
+                  value={formData.ownerInfo.address}
+                  onChange={(e) => updateFormData({ 
+                    ownerInfo: { 
+                      ...formData.ownerInfo, 
+                      address: e.target.value 
+                    } 
+                  })}
                   placeholder="0x..."
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="ownerName">Owner Name</Label>
+                  <Input
+                    id="ownerName"
+                    value={formData.ownerInfo.name || ""}
+                    onChange={(e) => updateFormData({ 
+                      ownerInfo: { 
+                        ...formData.ownerInfo, 
+                        name: e.target.value 
+                      } 
+                    })}
+                    placeholder="John Doe"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ownerEmail">Owner Email</Label>
+                  <Input
+                    id="ownerEmail"
+                    type="email"
+                    value={formData.ownerInfo.email || ""}
+                    onChange={(e) => updateFormData({ 
+                      ownerInfo: { 
+                        ...formData.ownerInfo, 
+                        email: e.target.value 
+                      } 
+                    })}
+                    placeholder="john@example.com"
+                  />
+                </div>
               </div>
               <div>
                 <Label htmlFor="irAgentAddress">Identity Registry Agent *</Label>
                 <Input
                   id="irAgentAddress"
-                  value={formData.irAgentAddress}
-                  onChange={(e) => updateFormData({ irAgentAddress: e.target.value })}
+                  value={formData.agentInfo.irAgentAddress}
+                  onChange={(e) => updateFormData({ 
+                    agentInfo: { 
+                      ...formData.agentInfo, 
+                      irAgentAddress: e.target.value 
+                    } 
+                  })}
                   placeholder="0x..."
                 />
               </div>
@@ -3694,32 +5096,45 @@ const TokenCreationWizard = ({
                 <Label htmlFor="tokenAgentAddress">Token Agent *</Label>
                 <Input
                   id="tokenAgentAddress"
-                  value={formData.tokenAgentAddress}
-                  onChange={(e) => updateFormData({ tokenAgentAddress: e.target.value })}
+                  value={formData.agentInfo.tokenAgentAddress}
+                  onChange={(e) => updateFormData({ 
+                    agentInfo: { 
+                      ...formData.agentInfo, 
+                      tokenAgentAddress: e.target.value 
+                    } 
+                  })}
                   placeholder="0x..."
                 />
               </div>
               <div>
                 <Label>Trusted Issuers</Label>
                 <div className="space-y-2 mt-2">
-                  {formData.trustedIssuers.map((issuer, index) => (
+                  {formData.agentInfo.trustedIssuers.map((issuer, index) => (
                     <div key={index} className="flex items-center space-x-2">
                       <Input
                         value={issuer}
                         onChange={(e) => {
-                          const newIssuers = [...formData.trustedIssuers]
+                          const newIssuers = [...formData.agentInfo.trustedIssuers]
                           newIssuers[index] = e.target.value
-                          updateFormData({ trustedIssuers: newIssuers })
+                          updateFormData({ 
+                            agentInfo: { 
+                              ...formData.agentInfo, 
+                              trustedIssuers: newIssuers 
+                            } 
+                          })
                         }}
                         placeholder="0x..."
                       />
-                      {formData.trustedIssuers.length > 1 && (
+                      {formData.agentInfo.trustedIssuers.length > 1 && (
                         <Button
                           variant="outline"
                           size="icon"
                           onClick={() => {
                             updateFormData({
-                              trustedIssuers: formData.trustedIssuers.filter((_, i) => i !== index),
+                              agentInfo: {
+                                ...formData.agentInfo,
+                                trustedIssuers: formData.agentInfo.trustedIssuers.filter((_, i) => i !== index),
+                              }
                             })
                           }}
                         >
@@ -3733,13 +5148,66 @@ const TokenCreationWizard = ({
                     size="sm"
                     onClick={() => {
                       updateFormData({
-                        trustedIssuers: [...formData.trustedIssuers, ""],
+                        agentInfo: {
+                          ...formData.agentInfo,
+                          trustedIssuers: [...formData.agentInfo.trustedIssuers, ""],
+                        }
                       })
                     }}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Trusted Issuer
                   </Button>
+                </div>
+              </div>
+              
+              <div className="border-t pt-4">
+                <Label className="text-base font-medium mb-3 block">Token Metadata (Optional)</Label>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="logoUrl">Logo URL</Label>
+                    <Input
+                      id="logoUrl"
+                      value={formData.metadata.logoUrl || ""}
+                      onChange={(e) => updateFormData({ 
+                        metadata: { 
+                          ...formData.metadata, 
+                          logoUrl: e.target.value 
+                        } 
+                      })}
+                      placeholder="https://example.com/logo.png"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="website">Website</Label>
+                      <Input
+                        id="website"
+                        value={formData.metadata.website || ""}
+                        onChange={(e) => updateFormData({ 
+                          metadata: { 
+                            ...formData.metadata, 
+                            website: e.target.value 
+                          } 
+                        })}
+                        placeholder="https://example.com"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="whitepaper">Whitepaper URL</Label>
+                      <Input
+                        id="whitepaper"
+                        value={formData.metadata.whitepaper || ""}
+                        onChange={(e) => updateFormData({ 
+                          metadata: { 
+                            ...formData.metadata, 
+                            whitepaper: e.target.value 
+                          } 
+                        })}
+                        placeholder="https://example.com/whitepaper.pdf"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3760,19 +5228,19 @@ const TokenCreationWizard = ({
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <span className="text-muted-foreground">Name:</span>
-                          <p className="font-medium">{formData.name}</p>
+                          <p className="font-medium">{formData.basicInfo.name}</p>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Symbol:</span>
-                          <p className="font-medium">{formData.symbol}</p>
+                          <p className="font-medium">{formData.basicInfo.symbol}</p>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Total Supply:</span>
-                          <p className="font-medium">{Number(formData.totalSupply).toLocaleString()}</p>
+                          <p className="font-medium">{Number(formData.basicInfo.totalSupply).toLocaleString()}</p>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Price:</span>
-                          <p className="font-medium">${formData.tokenPrice}</p>
+                          <p className="font-medium">${formData.basicInfo.initialPrice}</p>
                         </div>
                       </div>
                     </CardContent>
@@ -3787,15 +5255,15 @@ const TokenCreationWizard = ({
                         <div>
                           <span className="text-muted-foreground">Category:</span>
                           <p className="font-medium">
-                            {ASSET_CATEGORIES[formData.assetCategory as keyof typeof ASSET_CATEGORIES]?.name}
+                            {ASSET_CATEGORIES[formData.assetInfo.category as keyof typeof ASSET_CATEGORIES]?.name}
                           </p>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Type:</span>
                           <p className="font-medium">
                             {
-                              ASSET_CATEGORIES[formData.assetCategory as keyof typeof ASSET_CATEGORIES]?.assets.find(
-                                (a) => a.id === formData.assetType,
+                              ASSET_CATEGORIES[formData.assetInfo.category as keyof typeof ASSET_CATEGORIES]?.assets.find(
+                                (a) => a.id === formData.assetInfo.type,
                               )?.name
                             }
                           </p>
@@ -3804,7 +5272,7 @@ const TokenCreationWizard = ({
                           <span className="text-muted-foreground">Jurisdiction:</span>
                           <p className="font-medium">
                             {
-                              JURISDICTION_REQUIREMENTS[formData.jurisdiction as keyof typeof JURISDICTION_REQUIREMENTS]
+                              JURISDICTION_REQUIREMENTS[formData.assetInfo.jurisdiction as keyof typeof JURISDICTION_REQUIREMENTS]
                                 ?.name
                             }
                           </p>
@@ -3821,7 +5289,7 @@ const TokenCreationWizard = ({
                       <div className="text-sm">
                         <span className="text-muted-foreground">Required Claims:</span>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {formData.claimTopics.map((topic) => (
+                          {formData.claimData.claimTopics.map((topic) => (
                             <Badge key={topic} variant="outline" className="text-xs">
                               {topic}
                             </Badge>
@@ -4002,135 +5470,3 @@ const EmptyStateOnboarding = ({ onStartTokenCreation }: { onStartTokenCreation: 
     </div>
   )
 }
-
-// const IssuerDashboard = () => {
-//   const { address: issuerAddress, isConnected } = useAppKitAccount()
-//   const { open } = useAppKit()
-//   const [showTokenCreation, setShowTokenCreation] = useState(false)
-//   const [tokens, setTokens] = useState<any[]>([])
-//   const [loading, setLoading] = useState(true)
-
-//   // Mock check for existing tokens
-//   useEffect(() => {
-//     const checkExistingTokens = async () => {
-//       if (!issuerAddress) return
-
-//       setLoading(true)
-//       try {
-//         // Simulate API call to check existing tokens
-//         await new Promise((resolve) => setTimeout(resolve, 1000))
-
-//         // For demo purposes, assume no tokens initially
-//         // In real implementation, this would fetch from your API
-//         const existingTokens: any[] = []
-//         setTokens(existingTokens)
-//       } catch (error) {
-//         console.error("Error checking tokens:", error)
-//       } finally {
-//         setLoading(false)
-//       }
-//     }
-
-//     checkExistingTokens()
-//   }, [issuerAddress])
-
-//   const handleTokenCreated = (tokenAddress: string) => {
-//     // Add the new token to the list
-//     const newToken = {
-//       id: Date.now().toString(),
-//       symbol: "NEW",
-//       name: "New Token",
-//       tokenAddress,
-//       deployedAt: new Date().toISOString(),
-//     }
-//     setTokens((prev) => [...prev, newToken])
-//     toast.success("Token created successfully!")
-//   }
-
-//   if (!isConnected) {
-//     return (
-//       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-//         <Card className="w-96">
-//           <CardHeader className="text-center">
-//             <CardTitle>Connect Wallet</CardTitle>
-//             <CardDescription>Please connect your wallet to access the issuer dashboard</CardDescription>
-//           </CardHeader>
-//           <CardContent>
-//             <Button onClick={() => open()} className="w-full">
-//               Connect Wallet
-//             </Button>
-//           </CardContent>
-//         </Card>
-//       </div>
-//     )
-//   }
-
-//   if (loading) {
-//     return (
-//       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-//         <div className="text-center">
-//           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-//           <p className="text-muted-foreground">Loading your dashboard...</p>
-//         </div>
-//       </div>
-//     )
-//   }
-
-//   // Show onboarding if no tokens exist
-//   if (tokens.length === 0) {
-//     return (
-//       <>
-//         <EmptyStateOnboarding onStartTokenCreation={() => setShowTokenCreation(true)} />
-//         <TokenCreationWizard
-//           isOpen={showTokenCreation}
-//           onClose={() => setShowTokenCreation(false)}
-//           onSuccess={handleTokenCreated}
-//         />
-//       </>
-//     )
-//   }
-
-//   // Show full dashboard if tokens exist
-//   return (
-//     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-//       {/* Your existing dashboard code would go here */}
-//       <div className="p-6">
-//         <div className="flex items-center justify-between mb-6">
-//           <div>
-//             <h1 className="text-3xl font-bold">Token Issuer Dashboard</h1>
-//             <p className="text-muted-foreground">
-//               Manage your {tokens.length} token{tokens.length !== 1 ? "s" : ""}
-//             </p>
-//           </div>
-//           <Button onClick={() => setShowTokenCreation(true)}>
-//             <Plus className="mr-2 h-4 w-4" />
-//             Create New Token
-//           </Button>
-//         </div>
-
-//         {/* Token grid */}
-//         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-//           {tokens.map((token) => (
-//             <Card key={token.id}>
-//               <CardHeader>
-//                 <CardTitle>{token.symbol}</CardTitle>
-//                 <CardDescription>{token.name}</CardDescription>
-//               </CardHeader>
-//               <CardContent>
-//                 <p className="text-sm text-muted-foreground font-mono">{token.tokenAddress}</p>
-//               </CardContent>
-//             </Card>
-//           ))}
-//         </div>
-//       </div>
-
-//       <TokenCreationWizard
-//         isOpen={showTokenCreation}
-//         onClose={() => setShowTokenCreation(false)}
-//         onSuccess={handleTokenCreated}
-//       />
-//     </div>
-//   )
-// }
-
-// export default IssuerDashboard

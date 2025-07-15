@@ -51,7 +51,7 @@ function HomePage() {
         }}
       />
       
-      <PropertyShowcase />
+      {/* <PropertyShowcase /> */}
       
       <main className="relative z-10">
         <HeroSection />
