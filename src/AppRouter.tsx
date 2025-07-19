@@ -22,6 +22,10 @@ import AnalyticsPage from './pages/Dashboards/InvestorDashboard/Analytics';
 import CompliancePage from './pages/Dashboards/InvestorDashboard/CompliancePage';
 import DocumentsPage from './pages/Dashboards/InvestorDashboard/DocumentPage';
 import IssuerDashboard from './pages/Portfolios/IssuerPortfolio/IssuerDashboard';
+import BackOffice from './pages/BackOffice/BackOffice';
+import Applications from './pages/Applications/Applications';
+
+
 
 function AppRouter() {
   return (
@@ -49,6 +53,9 @@ function AppRouter() {
         <Route path="/issuer/dashboard" element={<IssuerDashboard />} />
         <Route path="/setting" element={<Profile />} />
         <Route path="/history" element={<History />} />
+        <Route path="/backoffice" element={<BackOffice />} />
+        <Route path="/applications" element={<Applications />} />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toaster position="top-right" />
