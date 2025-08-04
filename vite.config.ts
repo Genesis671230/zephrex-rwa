@@ -15,6 +15,10 @@ export default defineConfig({
       protocolImports: true,
     })
   ],
+  server: {
+    host: "localhost",
+    port: 3000,
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

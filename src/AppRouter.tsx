@@ -14,16 +14,14 @@ import QualificationStart from './components/TokenCard/QualificationStart';
 import QualificationStartStep from './pages/Onboarding/QualificationStartStep';
 import KYCReviewStatus from './pages/Onboarding/KYCReviewStatus';
 import InvestorPortfolio from './pages/Portfolios/InvestorPortfolio/InvestorPortfolio';
-import IssuerPortfolio from './pages/Portfolios/IssuerPortfolio/IssuerPortfolio';
+
 import EnhancedQualificationStep from './pages/Portfolios/InvestorPortfolio/EnhancedQualificationStep';
 import AdvancedInvestorPortfolio from './pages/Portfolios/InvestorPortfolio/AdvancedInvestorPortfolio';
 import ProfilePage from './pages/Dashboards/InvestorDashboard/ProfilePage';
 import AnalyticsPage from './pages/Dashboards/InvestorDashboard/Analytics';
 import CompliancePage from './pages/Dashboards/InvestorDashboard/CompliancePage';
 import DocumentsPage from './pages/Dashboards/InvestorDashboard/DocumentPage';
-import IssuerDashboard from './pages/Portfolios/IssuerPortfolio/IssuerDashboard';
-import BackOffice from './pages/BackOffice/BackOffice';
-import Applications from './pages/Applications/Applications';
+
 
 
 
@@ -49,12 +47,12 @@ function AppRouter() {
         <Route path="/investor/documents" element={<DocumentsPage />} />
         <Route path="/investor/compliance" element={<CompliancePage />} />
 
-        <Route path="/issuer/portfolio" element={<IssuerPortfolio />} />
-        <Route path="/issuer/dashboard" element={<IssuerDashboard />} />
+        {/* <Route path="/issuer/portfolio" element={<IssuerPortfolio />} /> */}
+        {/* <Route path="/issuer/dashboard" element={<IssuerDashboard />} /> */}
         <Route path="/setting" element={<Profile />} />
         <Route path="/history" element={<History />} />
-        <Route path="/backoffice" element={<BackOffice />} />
-        <Route path="/applications" element={<Applications />} />
+        {/* <Route path="/backoffice" element={<BackOffice />} />
+        <Route path="/applications" element={<Applications />} /> */}
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

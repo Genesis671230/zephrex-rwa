@@ -6,20 +6,18 @@ import { combineReducers } from "@reduxjs/toolkit"
 import authSlice from "./slices/authSlice"
 import investorSlice from "./slices/investorSlice"
 import portfolioSlice from "./slices/portfolioSlice"
-import issuerSlice from "./slices/issuerSlice"
 import complianceSlice from "./slices/complianceSlice"
 
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["auth", "investor", "portfolio", "issuer", "compliance"], // Only persist these slices
+  whitelist: ["auth", "investor", "portfolio", "compliance"], // Only persist these slices
 }
 
 const rootReducer = combineReducers({
   auth: authSlice,
   investor: investorSlice,
   portfolio: portfolioSlice,
-  issuer: issuerSlice,
   compliance: complianceSlice,
 })
 

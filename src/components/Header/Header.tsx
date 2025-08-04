@@ -258,23 +258,9 @@ export function Appbar() {
           >
             Marketplace
           </Link>
-          <Link
-            id="tag"
-            to="/issuer/dashboard"
-            className={`text-base font-medium text-black transition-all duration-300 ${!isScrolled && window.location.pathname == '/' ? 'text-white' : 'text-black'} transition hover:text-[#10b981]`}
-          >
-            Issue Token
-          </Link>
+        
 
-          {address == '0xD2E33B6ACDE32e80E6553270C349C9BC8E45aCf0' && (
-            <Link
-              id="tag"
-              to="/backoffice"
-              className={`text-base font-medium text-black transition-all duration-300 ${!isScrolled && window.location.pathname == '/' ? 'text-white' : 'text-black'} transition hover:text-[#10b981]`}
-            >
-              Back Office
-            </Link>
-          )}
+          
           {/* <Link
 					id="tag"
 					to="#faqs"

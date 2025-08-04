@@ -138,13 +138,7 @@ const run =async () => {
 					</div>
 				</div>
 
-				<div className="flex justify-center">
-					<Button variant="secondary" size="sm" className='bg-black hover:bg-sky-950 text-white'>
-						<Link to="/issuer/dashboard" className='text-white'>
-				    Tokenize Asset
-					</Link>
-					</Button>
-				</div>
+				
 
 
 				{/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"> */}
