@@ -1,291 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-// import { Button } from '@/components/ui/button';
-// import { Badge } from '@/components/ui/badge';
-// import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-// import { ArrowLeft } from 'lucide-react';
-// import { getSTData } from '@/hooks/use-ST';
-
-// const projectData = {
-//   gbb: {
-//     symbol: 'GBB',
-//     name: 'Green Brew Bond',
-//     balance: 'GBB 0.00',
-//     status: 'Not qualified',
-//     startDate: '21 Nov 2023',
-//     endDate: '20 Dec 2027',
-//     offeringStatus: 'Open',
-//     allowedCountries: '222 countries',
-//     jurisdiction: 'Luxembourg',
-//     tokenAddress: '0x702b8F142f137F...106',
-//     tokenSymbol: 'SCR',
-//     tokenStatus: 'Active',
-//     pricePerToken: '-',
-//     instrumentType: 'FUND',
-//     tokenName: 'Stellar Cash Reserve',
-//     tokenStandard: 'T-REX v3.1',
-//     blockchainNetwork: 'Amoy',
-//     team: [
-//       { name: 'Luc Falempin', role: 'CEO', image: '/api/placeholder/64/64' },
-//       { name: 'Daniel Coheaur', role: 'Chief Commercial Officer', image: '/api/placeholder/64/64' },
-//       { name: 'Liam Karwan', role: 'Director of Business Development', image: '/api/placeholder/64/64' }
-//     ],
-//     description: `The Green Brew Bond represents a groundbreaking approach to financing sustainable coffee production and farming. In an era where environmental sustainability and social responsibility are paramount, this tokenized debt instrument offers a unique opportunity for investors to support positive change in the coffee industry.
-
-// At its core, the Green Brew Bond functions as a financial vehicle for channeling funds into eco-friendly initiatives within the coffee supply chain. These initiatives encompass a wide range of activities aimed at promoting sustainability, including the adoption of organic farming practices, the implementation of fair trade certifications, and the support of community development projects in coffee-growing regions.
-
-// Investors who purchase Green Brew Bonds not only provide vital capital for these initiatives but also gain access to a diversified investment opportunity. The bonds offer competitive financial returns, combining the stability of fixed-income securities with the potential for growth associated with sustainable investments. Furthermore, the tokenized nature of the bonds ensures liquidity and accessibility, allowing investors of all sizes to participate in supporting sustainable coffee production.
-
-// Through the issuance of Green Brew Bonds, coffee producers and farmers can access much-needed financing to implement sustainable practices, improve their livelihoods, and mitigate the environmental impact of coffee cultivation. By fostering a more sustainable and equitable coffee industry, the bonds contribute to the achievement of broader environmental and social goals.`
-//   }
-// };
-
-// const ProjectDetails = () => {
-//   const { id } = useParams();
-//   const navigate = useNavigate();
-//     const [securityToken, setSecurityToken] = useState()
-//     const handleDetailsClick = (symbol: string) => {
-//       navigate(`/project/${symbol.toLowerCase()}`);
-//     };
-  
-//   const run =async () => { 
-//     const stdata =  await getSTData()
-//     console.log(stdata)
-
-
-//     // setSecurityTokens(stdata.content.filter((contract)=>contract.symbol === id))
-//     console.log(stdata.content.filter((contract)=>contract.symbol.toLowerCase() === id))
-//     const securityTokenContract = stdata.content.filter((contract)=>contract.symbol.toLowerCase() === id)
-//     console.log(securityTokenContract[0])
-//     setSecurityToken(securityTokenContract[0])
-//     return stdata
-//    }
-  
-//     useEffect(()=>{
-//         const res=run() 
-//         console.log(res)
-//     },[])
-  
-//   const project = projectData["gbb"];
-
-//   if (!project||!securityToken) {
-//     return <div>Project not found</div>;
-//   }
-
-//   const handleQualifyClick = () => {
-//     navigate('/qualification/start');
-//   };
-
-
-
-//   return (
-//     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-//       <div className="p-8">
-//         <div className="flex items-center space-x-4 mb-6">
-//           <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
-//             <ArrowLeft className="w-4 h-4" />
-//           </Button>
-//           <div className="flex items-center space-x-3">
-//             <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center text-white text-sm font-bold">
-//               {securityToken?.symbol}
-//             </div>
-//             <span className="text-gray-600">{project.name}</span>
-//           </div>
-//         </div>
-
-//         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-//           <div className="lg:col-span-2">
-//             <div className="bg-green-600 h-64 rounded-lg mb-6 relative overflow-hidden">
-//               <img 
-//                 src={securityToken?.logo}
-//                 alt="Coffee farming" 
-//                 className="w-full h-full object-cover"
-//               />
-//             </div>
-
-//             <Tabs defaultValue="overview" className="w-full">
-//               <TabsList className="grid w-full grid-cols-3">
-//                 <TabsTrigger value="overview">Overview</TabsTrigger>
-//                 <TabsTrigger value="documents">Documents</TabsTrigger>
-//                 <TabsTrigger value="token-details">Token details</TabsTrigger>
-//               </TabsList>
-              
-
-//               <TabsContent value="token-details" className="space-y-6">
-  
-
-//   <div>
-//     <h3 className="text-lg font-semibold mb-4">Required Claims to Mint</h3>
-//     <ul className="list-disc pl-6 text-sm text-gray-700">
-//       <li>KYC - Required from Onfido</li>
-//       {/* Add more claims here if needed */}
-//     </ul>
-//   </div>
-// </TabsContent>
-
-
-//               <TabsContent value="overview" className="space-y-6">
-
-//                 {securityToken?.claimData && (
-//   <>
-//     <h3 className="text-lg font-semibold mb-4">Trusted Issuers</h3>
-//     <ul className="list-disc pl-6 text-sm text-gray-700">
-//       {securityToken?.claimData?.data?.map((claim, i) => (
-//         <li key={i}>
-//           <strong>Name:</strong> {claim.issuer}<br />
-//           <strong>Claim:</strong> {claim.name}<br />
-//           <strong>Contract:</strong> {claim.contract}
-//         </li>
-//       ))}
-//     </ul>
-
-//     <h3 className="text-lg font-semibold mb-4 mt-6">Required Claims to Mint</h3>
-//     <ul className="list-disc pl-6 text-sm text-gray-700">
-//       {securityToken?.claimData?.data?.map((claim, i) => (
-//         <li key={i}>{claim.name} - Required from {claim.issuer}</li>
-//       ))}
-//     </ul>
-//   </>
-// )}
-//                 <div>
-//                   <h3 className="text-lg font-semibold mb-4">Team</h3>
-//                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-//                     {project.team.map((member, index) => (
-//                       <div key={index} className="text-center">
-//                         <div className="w-20 h-20 bg-gray-300 rounded-full mx-auto mb-3"></div>
-//                         <h4 className="font-medium">{member.name}</h4>
-//                         <p className="text-sm text-gray-600">{member.role}</p>
-//                       </div>
-//                     ))}
-//                   </div>
-//                 </div>
-
-//                 <div>
-//                   <h3 className="text-lg font-semibold mb-4">Token details</h3>
-//                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-//                     <div>
-//                       <span className="text-gray-500">Token address</span>
-//                       <p className="font-medium text-blue-600">{securityToken?.tokenAddress?.slice(0,6)}...{securityToken?.tokenAddress?.slice(-6)}</p>
-//                     </div>
-//                     <div>
-//                       <span className="text-gray-500">Token symbol</span>
-//                       <p className="font-medium">{securityToken?.symbol}</p>
-//                     </div>
-//                     <div>
-//                       <span className="text-gray-500">Token status</span>
-//                       <p className="font-medium text-green-600">{securityToken?.status}</p>
-//                     </div>
-//                     <div>
-//                       <span className="text-gray-500">Price per token</span>
-//                       <p className="font-medium">{project.pricePerToken}</p>
-//                     </div>
-//                     <div>
-//                       <span className="text-gray-500">Instrument type</span>
-//                       <p className="font-medium">{project.instrumentType}</p>
-//                     </div>
-//                     <div>
-//                       <span className="text-gray-500">Open to secondary trading</span>
-//                       <p className="font-medium">Yes</p>
-//                     </div>
-//                     <div>
-//                       <span className="text-gray-500">Token name</span>
-//                       <p className="font-medium">{securityToken.name}</p>
-//                     </div>
-//                     <div>
-//                       <span className="text-gray-500">Token standard</span>
-//                       <p className="font-medium">{project.tokenStandard}</p>
-//                     </div>
-//                     <div>
-//                       <span className="text-gray-500">Blockchain network</span>
-//                       <p className="font-medium text-purple-600">{project.blockchainNetwork}</p>
-//                     </div>
-//                   </div>
-//                 </div>
-
-//                 <div>
-//                   <p className="text-gray-700 leading-relaxed">{securityToken.description}</p>
-//                 </div>
-//               </TabsContent>
-              
-//               <TabsContent value="documents">
-//                 <p>Documents will be displayed here.</p>
-//               </TabsContent>
-              
-//               <TabsContent value="token-details">
-//                 <p>Detailed token information will be displayed here.</p>
-//               </TabsContent>
-//             </Tabs>
-//           </div>
-
-//           <div className="space-y-6">
-//             <div className="bg-white border border-gray-200 rounded-lg p-6">
-//               <div className="flex justify-between items-center mb-4">
-//                 <span className="text-gray-600">Your balance</span>
-//                 <Badge variant="destructive">{project.status}</Badge>
-//               </div>
-//               <div className="text-xl font-bold mb-6">{project.balance}</div>
-              
-//               <p className="text-gray-600 text-sm mb-6">
-//                 You need to verify your identity to invest in this offering. You can create your first order after you are qualified to invest.
-//               </p>
-              
-//               <Button onClick={handleQualifyClick} className="w-full bg-gray-900 hover:bg-gray-800">
-//                 Get qualified and invest
-//               </Button>
-//             </div>
-
-
-
-
-
-//             <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
-//               <div className="grid grid-cols-2 gap-4 text-sm">
-//                 <div>
-//                   <span className="text-gray-500">Start date</span>
-//                   <p className="font-medium">{project?.startDate}</p>
-//                 </div>
-//                 <div>
-//                   <span className="text-gray-500">End date</span>
-//                   <p className="font-medium">{project?.endDate}</p>
-//                 </div>
-//                 <div>
-//                   <span className="text-gray-500">Offering status</span>
-//                   <p className="font-medium">{project?.offeringStatus}</p>
-//                 </div>
-//                 <div>
-//                   <span className="text-gray-500">Allowed countries</span>
-//                   <p className="font-medium">{project?.allowedCountries}</p>
-//                 </div>
-//                 <div className="col-span-2">
-//                   <span className="text-gray-500">Jurisdiction</span>
-//                   <p className="font-medium">{project?.jurisdiction}</p>
-//                 </div>
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-
-//         <div className="bg-purple-500 text-white p-6 rounded-lg mt-8">
-//           <h4 className="font-medium mb-2">
-//             After you have read the project overview, click 'Get qualified and invest' to proceed.
-//           </h4>
-//           <div className="flex items-center justify-between mt-4">
-//             <span className="text-sm">18 of 51</span>
-//             <div className="flex space-x-2">
-//               <Button variant="secondary" size="sm">←</Button>
-//               <Button variant="secondary" size="sm">→</Button>
-//             </div>
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default ProjectDetails;
-
-
-
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -307,8 +21,116 @@ import {
   Target,
   Database,
   Settings,
+  Globe,
+  Lock,
+  Unlock,
+  Activity,
+  BarChart3,
+  FileText,
+  Eye,
+  EyeOff,
+  Calendar,
+  MapPin,
+  Building,
+  Wallet,
+  Zap,
+  Star,
+  AlertTriangle,
+  Info,
 } from "lucide-react"
 import { getSTData } from "@/hooks/use-ST"
+
+// Define proper TypeScript interfaces
+interface TokenMetrics {
+  totalTransactions: number;
+  totalHolders: number;
+  totalVolume: string;
+}
+
+interface TokenStats {
+  totalHolders: number;
+  totalTransfers: number;
+  totalMinted: string;
+  totalBurned: string;
+  lastUpdated: string;
+}
+
+interface ComplianceModule {
+  complianceSettings: any[];
+  status: string;
+  _id: string;
+  address: string;
+  name: string;
+  settings: string;
+  deployedAt: string;
+}
+
+interface SecurityToken {
+  metrics: TokenMetrics;
+  ownerJurisdiction: string;
+  initialPrice: string;
+  currency: string;
+  minInvestment: string;
+  maxInvestment: string;
+  kycRequired: boolean;
+  amlRequired: boolean;
+  accreditedOnly: boolean;
+  requiredClaims: any[];
+  circulatingSupply: string;
+  assetCurrency: string;
+  jurisdiction: string;
+  socialLinks: Record<string, any>;
+  isActive: boolean;
+  isPublic: boolean;
+  isTradeable: boolean;
+  address: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  totalSupply: string;
+  owner: string;
+  agents: string[];
+  paused: boolean;
+  deploymentSalt: string;
+  claimTopics: any[];
+  complianceModules: ComplianceModule[];
+  stats: TokenStats;
+  documents: any[];
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  tokenAgents: any[];
+  id: string;
+  // Additional properties that might exist
+  logo?: string;
+  objective?: string;
+  description?: string;
+  network?: {
+    name: string;
+    chainId: number;
+  };
+  prefix?: string;
+  tokenAddress?: string;
+  ownerAddress?: string;
+  tokenAgentAddress?: {
+    data: string[];
+  };
+  contractSuite?: {
+    data: Record<string, any>;
+  };
+  claimData?: {
+    data: Array<{
+      issuer: string;
+      name: string;
+      contract: string;
+    }>;
+  };
+  modules?: {
+    data: {
+      MaxBalanceModule?: number[];
+    };
+  };
+}
 
 // Static project data that complements the API data
 const projectData = {
@@ -354,60 +176,60 @@ const projectData = {
   },
 }
 
-const ProjectDetails =()=> {
-  const params = useParams()
-const navigate = useNavigate();
-  const [securityToken, setSecurityToken] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [copied, setCopied] = useState(false)
+const ProjectDetails = () => {
+  const params = useParams();
+  const navigate = useNavigate();
+  const [securityToken, setSecurityToken] = useState<SecurityToken | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const id = params?.id as string
+  const id = params?.id as string;
 
   useEffect(() => {
     const fetchTokenData = async () => {
       try {
-        setLoading(true)
-        setError(null)
+        setLoading(true);
+        setError(null);
 
-        console.log("Fetching ST data for ID:", id)
-        const stdata = await getSTData()
-        console.log("ST data received:", stdata)
+        console.log("Fetching ST data for ID:", id);
+        const stdata = await getSTData();
+        console.log("ST data received:", stdata);
 
         // Filter the data based on the symbol from URL params
-        const filteredTokens = stdata.content.filter((contract) => contract.symbol.toLowerCase() === id?.toLowerCase())
+        const filteredTokens = stdata.filter((contract: any) => contract.symbol.toLowerCase() === id?.toLowerCase());
 
-        console.log("Filtered tokens:", filteredTokens)
+        console.log("Filtered tokens:", filteredTokens);
 
         if (filteredTokens.length > 0) {
-          const securityTokenContract = filteredTokens[0]
-          console.log("Selected security token:", securityTokenContract)
-          setSecurityToken(securityTokenContract)
+          const securityTokenContract = filteredTokens[0];
+          console.log("Selected security token:", securityTokenContract);
+          setSecurityToken(securityTokenContract);
         } else {
-          console.log("No token found for symbol:", id)
-          setError("Token not found")
+          console.log("No token found for symbol:", id);
+          setError("Token not found");
         }
       } catch (err) {
-        console.error("Error fetching token data:", err)
-        setError("Failed to load token data")
+        console.error("Error fetching token data:", err);
+        setError("Failed to load token data");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
     if (id) {
-      fetchTokenData()
+      fetchTokenData();
     }
-  }, [id])
+  }, [id]);
 
   const copyToClipboard = async (text: string) => {
-    await navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   // Get project data based on the token symbol
-  const project = projectData[id?.toLowerCase() as keyof typeof projectData]
+  const project = projectData[id?.toLowerCase() as keyof typeof projectData];
 
   if (loading) {
     return (
@@ -417,7 +239,7 @@ const navigate = useNavigate();
           <p className="text-gray-600 text-lg">Loading token details...</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (error || !securityToken) {
@@ -439,33 +261,49 @@ const navigate = useNavigate();
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   // Use project data if available, otherwise create defaults
   const projectInfo = project || {
     team: [],
-    pricePerToken: "TBD",
-    instrumentType: "Utility Token",
+    pricePerToken: securityToken.initialPrice ? `$${securityToken.initialPrice}` : "TBD",
+    instrumentType: "Security Token",
     balance: "$0.00",
     status: "Not Qualified",
     startDate: new Date(securityToken.createdAt).toLocaleDateString(),
     endDate: "TBD",
-    offeringStatus: "Active",
+    offeringStatus: securityToken.isActive ? "Active" : "Inactive",
     allowedCountries: "Global",
-    jurisdiction: "TBD",
+    jurisdiction: securityToken.jurisdiction || "TBD",
     totalRaised: "TBD",
     targetAmount: "TBD",
-    investors: 0,
-    minInvestment: "$100",
-  }
+    investors: securityToken.metrics.totalHolders,
+    minInvestment: `$${securityToken.minInvestment}`,
+  };
 
-  const maxBalance = securityToken.modules?.data?.MaxBalanceModule?.[0] || 0
+  const maxBalance = securityToken.complianceModules?.find(m => m.name === "MaxBalanceModule")?.settings || "0";
   const progressPercentage = project
     ? (Number.parseFloat(project.totalRaised.replace("$", "").replace("K", "").replace("M", "")) /
         Number.parseFloat(project.targetAmount.replace("$", "").replace("K", "").replace("M", ""))) *
       100
-    : 0
+    : 0;
+
+  const formatNumber = (num: string | number) => {
+    const n = typeof num === 'string' ? parseFloat(num) : num;
+    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+    if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+    return n.toLocaleString();
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'paused': return 'bg-yellow-100 text-yellow-800';
+      case 'inactive': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   return (
     <div className="min-h-screen pt-[5%] bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
@@ -489,7 +327,7 @@ const navigate = useNavigate();
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{securityToken?.name}</h1>
-              <p className="text-gray-600">{securityToken?.objective}</p>
+              <p className="text-gray-600">{securityToken?.objective || "Security Token"}</p>
             </div>
           </div>
         </div>
@@ -508,69 +346,60 @@ const navigate = useNavigate();
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
                 <div className="absolute bottom-6 left-6 text-white">
                   <div className="flex items-center space-x-4 mb-2">
-                    <Badge className="bg-blue-500 hover:bg-blue-600">
+                    <Badge className={`${getStatusColor(securityToken.status)}`}>
                       <TrendingUp className="w-3 h-3 mr-1" />
-                      Active Token
+                      {securityToken.status}
                     </Badge>
                     <Badge variant="outline" className="border-white text-white">
                       <Shield className="w-3 h-3 mr-1" />
-                      {securityToken?.network?.name}
+                      {securityToken.jurisdiction}
                     </Badge>
+                    {securityToken.isTradeable && (
+                      <Badge variant="outline" className="border-green-400 text-green-400">
+                        <Zap className="w-3 h-3 mr-1" />
+                        Tradeable
+                      </Badge>
+                    )}
                   </div>
                   <h2 className="text-xl font-semibold">{securityToken?.name}</h2>
-                  <p className="text-sm text-gray-200 mt-1">{securityToken?.prefix}</p>
+                  <p className="text-sm text-gray-200 mt-1">{securityToken?.prefix || securityToken.symbol}</p>
                 </div>
               </div>
             </Card>
 
-            {/* Progress Card - Only show if we have project data */}
-            {project && (
-              <Card className="border-0 shadow-lg">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <div>
-                      <p className="text-sm text-gray-600">Funding Progress</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {project.totalRaised} <span className="text-lg text-gray-500">/ {project.targetAmount}</span>
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600">{project.investors} investors</p>
-                      <p className="text-lg font-semibold text-blue-600">{progressPercentage.toFixed(1)}% funded</p>
-                    </div>
+            {/* Token Metrics */}
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  <div className="text-center">
+                    <BarChart3 className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+                    <p className="text-2xl font-bold text-gray-900">{formatNumber(securityToken.metrics.totalHolders)}</p>
+                    <p className="text-sm text-gray-600">Total Holders</p>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
-                    <div
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-1000 ease-out"
-                      style={{ width: `${progressPercentage}%` }}
-                    ></div>
+                  <div className="text-center">
+                    <Activity className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                    <p className="text-2xl font-bold text-gray-900">{formatNumber(securityToken.metrics.totalTransactions)}</p>
+                    <p className="text-sm text-gray-600">Transactions</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <DollarSign className="w-5 h-5 text-blue-600 mx-auto mb-1" />
-                      <p className="text-xs text-gray-600">Min Investment</p>
-                      <p className="font-semibold">{project.minInvestment}</p>
-                    </div>
-                    <div>
-                      <Database className="w-5 h-5 text-purple-600 mx-auto mb-1" />
-                      <p className="text-xs text-gray-600">Max Balance</p>
-                      <p className="font-semibold">{maxBalance.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <Hash className="w-5 h-5 text-green-600 mx-auto mb-1" />
-                      <p className="text-xs text-gray-600">Decimals</p>
-                      <p className="font-semibold">{securityToken.decimals}</p>
-                    </div>
+                  <div className="text-center">
+                    <DollarSign className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+                    <p className="text-2xl font-bold text-gray-900">${formatNumber(securityToken.metrics.totalVolume)}</p>
+                    <p className="text-sm text-gray-600">Total Volume</p>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                  <div className="text-center">
+                    <Database className="w-8 h-8 text-orange-600 mx-auto mb-2" />
+                    <p className="text-2xl font-bold text-gray-900">{formatNumber(securityToken.totalSupply)}</p>
+                    <p className="text-sm text-gray-600">Total Supply</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Tabs */}
             <Card className="border-0 shadow-lg">
               <Tabs defaultValue="overview" className="w-full">
                 <CardHeader className="pb-4">
-                  <TabsList className="grid w-full grid-cols-3 bg-gray-100">
+                  <TabsList className="grid w-full grid-cols-4 bg-gray-100">
                     <TabsTrigger
                       value="overview"
                       className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
@@ -581,13 +410,19 @@ const navigate = useNavigate();
                       value="technical"
                       className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
                     >
-                      Technical Details
+                      Technical
                     </TabsTrigger>
                     <TabsTrigger
                       value="compliance"
                       className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
                     >
                       Compliance
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="investment"
+                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                    >
+                      Investment
                     </TabsTrigger>
                   </TabsList>
                 </CardHeader>
@@ -598,16 +433,14 @@ const navigate = useNavigate();
                     <div>
                       <h3 className="text-xl font-semibold mb-4 flex items-center">
                         <Target className="w-5 h-5 mr-2 text-blue-600" />
-                        Token Objective
+                        Token Overview
                       </h3>
-                      <p className="text-gray-700 leading-relaxed text-lg mb-4">{securityToken.objective}</p>
-                      <p className="text-gray-600 leading-relaxed">{securityToken.description}</p>
+                      <p className="text-gray-700 leading-relaxed text-lg mb-4">
+                        {securityToken.description || `${securityToken.name} is a security token with advanced compliance features and regulatory oversight.`}
+                      </p>
                     </div>
 
                     <Separator />
-
-                    {/* Team - Only show if we have team data */}
-                    
 
                     {/* Token Information Grid */}
                     <div>
@@ -622,13 +455,13 @@ const navigate = useNavigate();
                               <div>
                                 <p className="text-sm text-gray-600">Token Address</p>
                                 <p className="font-mono text-sm font-medium text-blue-700">
-                                  {securityToken?.tokenAddress?.slice(0, 6)}...{securityToken?.tokenAddress?.slice(-6)}
+                                  {securityToken?.address?.slice(0, 6)}...{securityToken?.address?.slice(-6)}
                                 </p>
                               </div>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => copyToClipboard(securityToken?.tokenAddress)}
+                                onClick={() => securityToken?.address && copyToClipboard(securityToken.address)}
                                 className="h-8 w-8 p-0"
                               >
                                 {copied ? (
@@ -657,29 +490,29 @@ const navigate = useNavigate();
 
                         <Card className="border-0 bg-gradient-to-br from-orange-50 to-orange-100">
                           <CardContent className="p-4">
-                            <p className="text-sm text-gray-600">Network</p>
-                            <p className="font-semibold text-orange-700">{securityToken?.network?.name}</p>
+                            <p className="text-sm text-gray-600">Jurisdiction</p>
+                            <p className="font-semibold text-orange-700">{securityToken?.jurisdiction}</p>
                           </CardContent>
                         </Card>
 
                         <Card className="border-0 bg-gradient-to-br from-pink-50 to-pink-100">
                           <CardContent className="p-4">
-                            <p className="text-sm text-gray-600">Chain ID</p>
-                            <p className="font-semibold text-pink-700">{securityToken?.network?.chainId}</p>
+                            <p className="text-sm text-gray-600">Decimals</p>
+                            <p className="font-semibold text-pink-700">{securityToken?.decimals}</p>
                           </CardContent>
                         </Card>
 
                         <Card className="border-0 bg-gradient-to-br from-indigo-50 to-indigo-100">
                           <CardContent className="p-4">
-                            <p className="text-sm text-gray-600">Decimals</p>
-                            <p className="font-semibold text-indigo-700">{securityToken?.decimals}</p>
+                            <p className="text-sm text-gray-600">Initial Price</p>
+                            <p className="font-semibold text-indigo-700">${securityToken?.initialPrice}</p>
                           </CardContent>
                         </Card>
 
                         <Card className="border-0 bg-gradient-to-br from-green-50 to-green-100">
                           <CardContent className="p-4">
-                            <p className="text-sm text-gray-600">Max Balance</p>
-                            <p className="font-semibold text-green-700">{maxBalance.toLocaleString()}</p>
+                            <p className="text-sm text-gray-600">Circulating Supply</p>
+                            <p className="font-semibold text-green-700">{formatNumber(securityToken?.circulatingSupply)}</p>
                           </CardContent>
                         </Card>
 
@@ -708,25 +541,61 @@ const navigate = useNavigate();
                     <div>
                       <h3 className="text-xl font-semibold mb-4 flex items-center">
                         <Settings className="w-5 h-5 mr-2 text-blue-600" />
-                        Contract Suite
+                        Contract Details
                       </h3>
                       <div className="space-y-4">
-                        {Object.entries(securityToken?.contractSuite?.data || {}).map(([key, value]) => (
-                          <Card key={key} className="border-0 bg-gradient-to-r from-gray-50 to-gray-100">
+                        <Card className="border-0 bg-gradient-to-r from-gray-50 to-gray-100">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-semibold text-gray-900">Owner Address</p>
+                                <p className="text-xs text-gray-500 font-mono">{securityToken?.owner}</p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => securityToken?.owner && copyToClipboard(securityToken.owner)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-0 bg-gradient-to-r from-blue-50 to-blue-100">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-semibold text-gray-900">Deployment Salt</p>
+                                <p className="text-xs text-gray-500 font-mono">{securityToken?.deploymentSalt}</p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => securityToken?.deploymentSalt && copyToClipboard(securityToken.deploymentSalt)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {securityToken?.agents?.map((agent, index) => (
+                          <Card key={index} className="border-0 bg-gradient-to-r from-green-50 to-green-100">
                             <CardContent className="p-4">
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <p className="font-semibold text-gray-900 capitalize">
-                                    {key.replace(/([A-Z])/g, " $1").trim()}
-                                  </p>
-                                  <p className="text-xs text-gray-500 font-mono">{value as string}</p>
+                                  <p className="font-semibold text-gray-900">Agent Address {index + 1}</p>
+                                  <p className="text-xs text-gray-500 font-mono">{agent}</p>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => copyToClipboard(value as string)}
-                                  className="h-8 w-8 p-0"
-                                >
+                                                                 <Button
+                                   variant="ghost"
+                                   size="sm"
+                                   onClick={() => agent && copyToClipboard(agent)}
+                                   className="h-8 w-8 p-0"
+                                 >
                                   <Copy className="w-4 h-4" />
                                 </Button>
                               </div>
@@ -741,19 +610,120 @@ const navigate = useNavigate();
                     <div>
                       <h3 className="text-xl font-semibold mb-4 flex items-center">
                         <Network className="w-5 h-5 mr-2 text-purple-600" />
-                        Network Information
+                        Token Status
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <Card className="border-0 bg-gradient-to-br from-purple-50 to-purple-100">
                           <CardContent className="p-4">
-                            <p className="text-sm text-gray-600">Network Name</p>
-                            <p className="font-semibold text-purple-700">{securityToken?.network?.name}</p>
+                            <div className="flex items-center space-x-2">
+                              {securityToken?.paused ? (
+                                <Lock className="w-5 h-5 text-red-600" />
+                              ) : (
+                                <Unlock className="w-5 h-5 text-green-600" />
+                              )}
+                              <div>
+                                <p className="text-sm text-gray-600">Status</p>
+                                <p className="font-semibold text-purple-700">
+                                  {securityToken?.paused ? "Paused" : "Active"}
+                                </p>
+                              </div>
+                            </div>
                           </CardContent>
                         </Card>
                         <Card className="border-0 bg-gradient-to-br from-blue-50 to-blue-100">
                           <CardContent className="p-4">
-                            <p className="text-sm text-gray-600">Chain ID</p>
-                            <p className="font-semibold text-blue-700">{securityToken?.network?.chainId}</p>
+                            <div className="flex items-center space-x-2">
+                              {securityToken?.isPublic ? (
+                                <Eye className="w-5 h-5 text-blue-600" />
+                              ) : (
+                                <EyeOff className="w-5 h-5 text-gray-600" />
+                              )}
+                              <div>
+                                <p className="text-sm text-gray-600">Visibility</p>
+                                <p className="font-semibold text-blue-700">
+                                  {securityToken?.isPublic ? "Public" : "Private"}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="compliance" className="space-y-6 mt-0">
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4 flex items-center">
+                        <Shield className="w-5 h-5 mr-2 text-blue-600" />
+                        Compliance Requirements
+                      </h3>
+                      <div className="space-y-4">
+                        <Card className="border-0 bg-gradient-to-r from-blue-50 to-indigo-50">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                {securityToken?.kycRequired ? (
+                                  <CheckCircle className="w-5 h-5 text-green-600" />
+                                ) : (
+                                  <AlertTriangle className="w-5 h-5 text-gray-400" />
+                                )}
+                                <div>
+                                  <p className="font-semibold text-gray-900">KYC Required</p>
+                                  <p className="text-sm text-gray-600">
+                                    {securityToken?.kycRequired ? "Identity verification required" : "No KYC required"}
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge className={securityToken?.kycRequired ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+                                {securityToken?.kycRequired ? "Required" : "Not Required"}
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-0 bg-gradient-to-r from-purple-50 to-purple-100">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                {securityToken?.amlRequired ? (
+                                  <CheckCircle className="w-5 h-5 text-green-600" />
+                                ) : (
+                                  <AlertTriangle className="w-5 h-5 text-gray-400" />
+                                )}
+                                <div>
+                                  <p className="font-semibold text-gray-900">AML Required</p>
+                                  <p className="text-sm text-gray-600">
+                                    {securityToken?.amlRequired ? "Anti-money laundering checks required" : "No AML required"}
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge className={securityToken?.amlRequired ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+                                {securityToken?.amlRequired ? "Required" : "Not Required"}
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-0 bg-gradient-to-r from-emerald-50 to-emerald-100">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                {securityToken?.accreditedOnly ? (
+                                  <Star className="w-5 h-5 text-yellow-600" />
+                                ) : (
+                                  <Users className="w-5 h-5 text-gray-400" />
+                                )}
+                                <div>
+                                  <p className="font-semibold text-gray-900">Accredited Investors Only</p>
+                                  <p className="text-sm text-gray-600">
+                                    {securityToken?.accreditedOnly ? "Limited to accredited investors" : "Open to all investors"}
+                                  </p>
+                                </div>
+                              </div>
+                              <Badge className={securityToken?.accreditedOnly ? "bg-yellow-100 text-yellow-800" : "bg-blue-100 text-blue-800"}>
+                                {securityToken?.accreditedOnly ? "Accredited Only" : "Open to All"}
+                              </Badge>
+                            </div>
                           </CardContent>
                         </Card>
                       </div>
@@ -764,20 +734,25 @@ const navigate = useNavigate();
                     <div>
                       <h3 className="text-xl font-semibold mb-4 flex items-center">
                         <Database className="w-5 h-5 mr-2 text-green-600" />
-                        Agent Addresses
+                        Compliance Modules
                       </h3>
                       <div className="space-y-4">
-                        <Card className="border-0 bg-gradient-to-r from-green-50 to-green-100">
-                          <CardContent className="p-4">
-                            <p className="font-semibold text-gray-900">Owner Address</p>
-                            <p className="text-xs text-gray-500 font-mono">{securityToken?.ownerAddress}</p>
-                          </CardContent>
-                        </Card>
-                        {securityToken?.tokenAgentAddress?.data?.map((address, index) => (
-                          <Card key={index} className="border-0 bg-gradient-to-r from-blue-50 to-blue-100">
+                        {securityToken?.complianceModules?.map((module, index) => (
+                          <Card key={index} className="border-0 bg-gradient-to-r from-green-50 to-green-100">
                             <CardContent className="p-4">
-                              <p className="font-semibold text-gray-900">Token Agent Address {index + 1}</p>
-                              <p className="text-xs text-gray-500 font-mono">{address}</p>
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-semibold text-gray-900">{module.name}</p>
+                                  <p className="text-sm text-gray-600">Status: {module.status}</p>
+                                  <p className="text-xs text-gray-500 font-mono">{module.address}</p>
+                                </div>
+                                <div className="text-right">
+                                  <Badge className="bg-green-100 text-green-800">{module.status}</Badge>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {new Date(module.deployedAt).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
                             </CardContent>
                           </Card>
                         ))}
@@ -785,56 +760,80 @@ const navigate = useNavigate();
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="compliance" className="space-y-6 mt-0">
-                    {securityToken?.claimData && (
-                      <>
-                        <div>
-                          <h3 className="text-xl font-semibold mb-4 flex items-center">
-                            <Shield className="w-5 h-5 mr-2 text-blue-600" />
-                            Required Claims
-                          </h3>
-                          <div className="space-y-4">
-                            {securityToken?.claimData?.data?.map((claim, i) => (
-                              <Card key={i} className="border-0 bg-gradient-to-r from-blue-50 to-indigo-50">
-                                <CardContent className="p-4">
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <p className="font-semibold text-gray-900">{claim.issuer}</p>
-                                      <p className="text-sm text-gray-600">{claim.name}</p>
-                                      <p className="text-xs text-gray-500 font-mono">{claim.contract}</p>
-                                    </div>
-                                    <Badge className="bg-blue-100 text-blue-800">Required</Badge>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                        </div>
+                  <TabsContent value="investment" className="space-y-6 mt-0">
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4 flex items-center">
+                        <DollarSign className="w-5 h-5 mr-2 text-green-600" />
+                        Investment Details
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card className="border-0 bg-gradient-to-br from-green-50 to-green-100">
+                          <CardContent className="p-4">
+                            <p className="text-sm text-gray-600">Minimum Investment</p>
+                            <p className="text-2xl font-bold text-green-700">${securityToken?.minInvestment}</p>
+                          </CardContent>
+                        </Card>
 
-                        <Separator />
+                        <Card className="border-0 bg-gradient-to-br from-blue-50 to-blue-100">
+                          <CardContent className="p-4">
+                            <p className="text-sm text-gray-600">Maximum Investment</p>
+                            <p className="text-2xl font-bold text-blue-700">${formatNumber(securityToken?.maxInvestment)}</p>
+                          </CardContent>
+                        </Card>
 
-                        <div>
-                          <h3 className="text-xl font-semibold mb-4 flex items-center">
-                            <CheckCircle className="w-5 h-5 mr-2 text-emerald-600" />
-                            Compliance Requirements
-                          </h3>
-                          <div className="space-y-3">
-                            {securityToken?.claimData?.data?.map((claim, i) => (
-                              <div
-                                key={i}
-                                className="flex items-center p-4 bg-emerald-50 rounded-lg border border-emerald-200"
-                              >
-                                <CheckCircle className="w-5 h-5 text-emerald-600 mr-3" />
-                                <div>
-                                  <p className="font-medium text-gray-900">{claim.name}</p>
-                                  <p className="text-sm text-gray-600">Required from {claim.issuer}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </>
-                    )}
+                        <Card className="border-0 bg-gradient-to-br from-purple-50 to-purple-100">
+                          <CardContent className="p-4">
+                            <p className="text-sm text-gray-600">Initial Price</p>
+                            <p className="text-2xl font-bold text-purple-700">${securityToken?.initialPrice}</p>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-0 bg-gradient-to-br from-orange-50 to-orange-100">
+                          <CardContent className="p-4">
+                            <p className="text-sm text-gray-600">Currency</p>
+                            <p className="text-2xl font-bold text-orange-700">{securityToken?.currency}</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4 flex items-center">
+                        <BarChart3 className="w-5 h-5 mr-2 text-blue-600" />
+                        Token Statistics
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card className="border-0 bg-gradient-to-br from-indigo-50 to-indigo-100">
+                          <CardContent className="p-4">
+                            <p className="text-sm text-gray-600">Total Holders</p>
+                            <p className="text-2xl font-bold text-indigo-700">{securityToken?.stats?.totalHolders}</p>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-0 bg-gradient-to-br from-pink-50 to-pink-100">
+                          <CardContent className="p-4">
+                            <p className="text-sm text-gray-600">Total Transfers</p>
+                            <p className="text-2xl font-bold text-pink-700">{securityToken?.stats?.totalTransfers}</p>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-0 bg-gradient-to-br from-emerald-50 to-emerald-100">
+                          <CardContent className="p-4">
+                            <p className="text-sm text-gray-600">Total Minted</p>
+                            <p className="text-2xl font-bold text-emerald-700">{formatNumber(securityToken?.stats?.totalMinted)}</p>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-0 bg-gradient-to-br from-red-50 to-red-100">
+                          <CardContent className="p-4">
+                            <p className="text-sm text-gray-600">Total Burned</p>
+                            <p className="text-2xl font-bold text-red-700">{formatNumber(securityToken?.stats?.totalBurned)}</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </div>
                   </TabsContent>
                 </CardContent>
               </Tabs>
@@ -896,24 +895,69 @@ const navigate = useNavigate();
                     <p className="font-semibold text-gray-900">{securityToken?.symbol}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Prefix</p>
-                    <p className="font-semibold text-gray-900">{securityToken?.prefix}</p>
-                  </div>
-                  <div>
                     <p className="text-xs text-gray-500 uppercase tracking-wide">Decimals</p>
                     <p className="font-semibold text-gray-900">{securityToken?.decimals}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide">Max Balance</p>
-                    <p className="font-semibold text-gray-900">{maxBalance.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Initial Price</p>
+                    <p className="font-semibold text-gray-900">${securityToken?.initialPrice}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Min Investment</p>
+                    <p className="font-semibold text-gray-900">${securityToken?.minInvestment}</p>
                   </div>
                 </div>
                 <Separator />
                 <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Network</p>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Jurisdiction</p>
                   <div className="flex items-center">
-                    <Network className="w-4 h-4 text-gray-400 mr-2" />
-                    <p className="font-semibold text-gray-900">{securityToken?.network?.name}</p>
+                    <MapPin className="w-4 h-4 text-gray-400 mr-2" />
+                    <p className="font-semibold text-gray-900">{securityToken?.jurisdiction}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Status</p>
+                  <div className="flex items-center">
+                    {securityToken?.paused ? (
+                      <Lock className="w-4 h-4 text-red-400 mr-2" />
+                    ) : (
+                      <Unlock className="w-4 h-4 text-green-400 mr-2" />
+                    )}
+                    <p className="font-semibold text-gray-900">
+                      {securityToken?.paused ? "Paused" : "Active"}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Compliance Status */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center">
+                  <Shield className="w-5 h-5 mr-2 text-gray-600" />
+                  Compliance Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">KYC Required</span>
+                    <Badge className={securityToken?.kycRequired ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+                      {securityToken?.kycRequired ? "Yes" : "No"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">AML Required</span>
+                    <Badge className={securityToken?.amlRequired ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+                      {securityToken?.amlRequired ? "Yes" : "No"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Accredited Only</span>
+                    <Badge className={securityToken?.accreditedOnly ? "bg-yellow-100 text-yellow-800" : "bg-blue-100 text-blue-800"}>
+                      {securityToken?.accreditedOnly ? "Yes" : "No"}
+                    </Badge>
                   </div>
                 </div>
               </CardContent>
@@ -943,6 +987,7 @@ const navigate = useNavigate();
         </div>
       </div>
     </div>
-  )
-}
-export default ProjectDetails
+  );
+};
+
+export default ProjectDetails;

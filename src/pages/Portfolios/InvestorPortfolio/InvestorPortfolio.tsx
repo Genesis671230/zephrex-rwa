@@ -161,10 +161,11 @@ const InvestorPortfolio = () => {
       }
 
       if (appKitAddress) {
-        const investorDetails = res.content.filter(
+        const investorDetails = res.data.filter(
           (investor: any) =>
-            investor.investorAddress.toLowerCase() ===
+            investor?.InvestorDetails?.walletAddress?.toLowerCase() ===
             appKitAddress.toLowerCase()
+            // "0xD2E33B6ACDE32e80E6553270C349C9BC8E45aCf0".toLowerCase()
         );
         const details = investorDetails[0];
         console.log('Filtered investor details:', details);
@@ -586,10 +587,10 @@ const InvestorPortfolio = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {investorData.claimData.data.length}
+                  {investorData?.claimData?.data?.length}
                 </div>
                 <p className="text-muted-foreground text-xs">
-                  {selectedClaims.length} added to identity
+                  {selectedClaims?.length} added to identity
                 </p>
               </CardContent>
             </Card>
@@ -749,9 +750,9 @@ const InvestorPortfolio = () => {
                     </Alert>
                   )}
                   <div className="space-y-4">
-                    {investorData.claimData.data.map((claim, index) => {
+                      {investorData?.claimData?.data?.map((claim, index) => {
                       const claimForUser =
-                        investorData.claimForUser?.data[index];
+                        investorData?.claimForUser?.data[index];
                       const isAdded = selectedClaims.includes(claim.name);
                       const isAdding = addingClaim === claim.name;
 
@@ -936,8 +937,8 @@ const InvestorPortfolio = () => {
                 <CardContent>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {Object.entries(
-                      investorData.InvestorDetails.identityDocuments
-                    ).map(([key, value]) => {
+                      investorData?.InvestorDetails?.identityDocuments
+                    ||{}).map(([key, value]) => {
                       if (key === 'otherDocs') return null;
                       const stringValue =
                         typeof value === 'string'
@@ -987,7 +988,7 @@ const InvestorPortfolio = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {Object.entries(investorData.claimStatus).map(
+                    {Object.entries(investorData?.claimStatus||{}).map(
                       ([key, value]) => (
                         <div
                           key={key}

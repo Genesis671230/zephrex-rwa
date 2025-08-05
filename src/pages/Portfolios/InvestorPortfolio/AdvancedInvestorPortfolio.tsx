@@ -367,13 +367,13 @@ const AdvancedInvestorPortfolio = () => {
       }
 
       if (appKitAddress) {
-        const investorDetails = res.content.filter(
-          (investor: any) => investor.investorAddress.toLowerCase() === appKitAddress.toLowerCase(),
+        const investorDetails = res.data.filter(
+          (investor: any) => investor.InvestorDetails.walletAddress?.toLowerCase() === appKitAddress.toLowerCase(),
         )
         const allTokens = investorDetails.map((investor: any) => investor.tokenAddress)
 
         const tokens = await getSTData()
-        const filteredTokens = tokens.content.filter((token: any) => allTokens.includes(token.tokenAddress))  
+        const filteredTokens = tokens.filter((token: any) => allTokens.includes(token.tokenAddress))  
         console.log("Tokens:", filteredTokens)
         setTokens(filteredTokens)
         const details = {...investorDetails[0], tokens: filteredTokens} 
@@ -943,7 +943,7 @@ const AdvancedInvestorPortfolio = () => {
                             Invest
                           </Button>
 
-                          {!walletTokens.has(token.tokenAddress.toLowerCase()) && (
+                          {!walletTokens?.has(token?.tokenAddress?.toLowerCase()) && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -960,7 +960,7 @@ const AdvancedInvestorPortfolio = () => {
                             </Button>
                           )}
 
-                          {walletTokens.has(token.tokenAddress.toLowerCase()) && (
+                          {walletTokens?.has(token?.tokenAddress?.toLowerCase()) && (
                             <Badge variant="secondary" className="bg-green-100 text-green-700">
                               <CheckCircle className="mr-1 h-3 w-3" />
                               In Wallet
@@ -1052,7 +1052,7 @@ const AdvancedInvestorPortfolio = () => {
                                   </div>
                                 </div>
                                                                  <div className="flex space-x-2 pt-4">
-                                   {!walletTokens.has(token.tokenAddress.toLowerCase()) ? (
+                                   {!walletTokens?.has(token?.tokenAddress?.toLowerCase()) ? (
                                      <Button
                                        onClick={() => addTokenToMetaMask(token)}
                                        className="flex-1"
@@ -1793,7 +1793,7 @@ const AdvancedInvestorPortfolio = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    {Object.entries(investorData?.InvestorDetails?.identityDocuments).map(([key, value]) => {
+                    {Object.entries(investorData?.InvestorDetails?.identityDocuments||{}).map(([key, value]) => {
                       if (key === "otherDocs") return null
                       const stringValue = typeof value === "string" ? value : Array.isArray(value) ? value[0] || "" : ""
 
