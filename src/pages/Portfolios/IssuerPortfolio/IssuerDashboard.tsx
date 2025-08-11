@@ -69,6 +69,7 @@ import {
   Wheat,
   Rocket,
   Trash2,
+  RotateCcw,
 } from "lucide-react"
 
 import {
@@ -337,6 +338,35 @@ interface InvestmentOrder {
   }
 }
 
+// Add to the existing interfaces section (after line 338)
+interface PendingInvestmentOrder {
+  _id: string
+  txHash: string
+  investorAddress: string
+  tokenAddress: string
+  tokenSymbol: string
+  investmentAmount: number
+  investmentCurrency: string
+  tokenAmount: number
+  paymentMethod: string
+  requiredCryptoAmount: number
+  tokenOwnerAddress: string
+  status: 'pending_confirmation' | 'confirmed' | 'ready_to_mint' | 'minting' | 'completed' | 'failed' | 'cancelled' | 'requires_documents'
+  notes?: string
+  issuerNotes?: string
+  createdAt: string
+  updatedAt: string
+  investorProfile?: {
+    name?: string
+    email?: string
+    kycStatus?: string
+    amlStatus?: string
+    complianceScore?: number
+  }
+  requestedDocuments?: string[]
+  submittedDocuments?: string[]
+}
+
 // import type { AppDispatch } from "@/store/store"
 // import { useDispatch, useSelector } from "react-redux"
 
@@ -396,6 +426,20 @@ const IssuerDashboard = () => {
   // Token Details Modal state
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [selectedTokenForDetails, setSelectedTokenForDetails] = useState<TokenData | null>(null)
+
+  // Add to the state variables section (around line 390)
+  const [pendingOrders, setPendingOrders] = useState<PendingInvestmentOrder[]>([])
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
+  const [orderActionLoading, setOrderActionLoading] = useState(false)
+  const [documentRequest, setDocumentRequest] = useState<{
+    orderId: string
+    documents: string[]
+    message: string
+  }>({
+    orderId: '',
+    documents: [],
+    message: ''
+  })
 
 
   const {
@@ -500,8 +544,8 @@ const IssuerDashboard = () => {
         const allTokens = await tokenService.getAllTokens()
         console.log("All tokens received:", allTokens)
 
-        const filteredTokens = allTokens.tokens.filter((contract: any) => 
-          contract.ownerAddress.toLowerCase() === issuerAddress?.toLowerCase()
+        const filteredTokens = allTokens?.tokens?.filter((contract: any) => 
+          contract?.ownerAddress === issuerAddress
         )
         setTokens(filteredTokens)
 
@@ -548,6 +592,9 @@ const IssuerDashboard = () => {
 
   useEffect(() => {
     fetchInvestorData();
+    if (issuerAddress) {
+      fetchPendingOrders();
+    }
   }, [issuerAddress]);
 
 
@@ -748,6 +795,98 @@ console.log("Result:", result)
     loadTokenInfo(tokenAddress)
     loadTokenHolders(tokenAddress)
     loadTransactions(tokenAddress)
+  }
+
+  // Fetch pending investment orders
+  const fetchPendingOrders = async () => {
+    if (!issuerAddress) return
+    try {
+      const response = await fetch(`http://localhost:5001/api/v1/investments/issuer/${issuerAddress}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setPendingOrders(data.data.investments || [])
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching pending orders:', error)
+    }
+  }
+
+  // Approve investment order and mint tokens
+  const handleApproveInvestmentOrder = async (orderId: string) => {
+    setOrderActionLoading(true)
+    try {
+      const response = await fetch(`http://localhost:5001/api/v1/investments/${orderId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'minting',
+          notes: 'Order approved by issuer - tokens will be minted'
+        })
+      })
+
+      if (response.ok) {
+        await fetchPendingOrders() // Refresh orders
+        toast.success('Investment order approved successfully')
+      }
+    } catch (error) {
+      console.error('Error approving order:', error)
+      toast.error('Failed to approve order')
+    } finally {
+      setOrderActionLoading(false)
+    }
+  }
+
+  // Reject investment order
+  const handleRejectInvestmentOrder = async (orderId: string, reason: string) => {
+    setOrderActionLoading(true)
+    try {
+      const response = await fetch(`http://localhost:5001/api/v1/investments/${orderId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'cancelled',
+          notes: `Order rejected: ${reason}`
+        })
+      })
+
+      if (response.ok) {
+        await fetchPendingOrders() // Refresh orders
+        toast.success('Investment order rejected')
+      }
+    } catch (error) {
+      console.error('Error rejecting order:', error)
+      toast.error('Failed to reject order')
+    } finally {
+      setOrderActionLoading(false)
+    }
+  }
+
+  // Request additional documents
+  const handleRequestDocuments = async (orderId: string, documents: string[], message: string) => {
+    setOrderActionLoading(true)
+    try {
+      const response = await fetch(`http://localhost:5001/api/v1/investments/${orderId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'requires_documents',
+          notes: `Additional documents requested: ${documents.join(', ')}. Message: ${message}`
+        })
+      })
+
+      if (response.ok) {
+        await fetchPendingOrders() // Refresh orders
+        toast.success('Document request sent to investor')
+        setDocumentRequest({ orderId: '', documents: [], message: '' })
+      }
+    } catch (error) {
+      console.error('Error requesting documents:', error)
+      toast.error('Failed to request documents')
+    } finally {
+      setOrderActionLoading(false)
+    }
   }
 
   const copyToClipboard = (text: string) => {
@@ -1745,43 +1884,82 @@ if (tokens.length === 0) {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold">Investment Orders</h2>
-                  <p className="text-muted-foreground">Review and approve pending investment orders</p>
+                  <p className="text-muted-foreground">Review and approve pending crypto investment orders</p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    onClick={fetchPendingOrders}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Refresh
+                  </Button>
+                  <Badge variant="secondary">
+                    {pendingOrders.length} pending
+                  </Badge>
                 </div>
               </div>
 
-              <div className="grid gap-6">
-                {filteredOrders.map((order) => (
-                  <Card key={order.id} className="hover:shadow-lg transition-shadow">
+              {pendingOrders.length === 0 ? (
+                <Card className="p-12 text-center">
+                  <ShoppingCart className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No pending orders</h3>
+                  <p className="text-gray-600">
+                    When investors submit crypto payments, their orders will appear here for review and token minting.
+                  </p>
+                </Card>
+              ) : (
+                <div className="grid gap-6">
+                  {pendingOrders.map((order) => (
+                  <Card key={order._id} className="hover:shadow-lg transition-shadow">
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
                           <Avatar className="h-12 w-12">
-                            <AvatarFallback>{order.investorName.slice(0, 2).toUpperCase()}</AvatarFallback>
+                            <AvatarFallback>
+                              {order.investorAddress.slice(2, 4).toUpperCase()}
+                            </AvatarFallback>
                           </Avatar>
                           <div>
-                            <CardTitle className="text-lg">{order.investorName}</CardTitle>
-                            <CardDescription>{order.investorEmail}</CardDescription>
-                            <p className="text-sm text-muted-foreground">Order ID: {order.id}</p>
+                            <CardTitle className="text-lg">
+                              {order.investorProfile?.name || `${order.investorAddress.slice(0, 6)}...${order.investorAddress.slice(-4)}`}
+                            </CardTitle>
+                            <CardDescription>
+                              {order.investorProfile?.email || order.investorAddress}
+                            </CardDescription>
+                            <p className="text-sm text-muted-foreground">
+                              Order ID: {order._id.slice(-8)}
+                            </p>
                           </div>
                         </div>
-                        <Badge
-                          variant={
-                            order.status === "pending"
-                              ? "secondary"
-                              : order.status === "approved"
+                        <div className="text-right">
+                          <Badge
+                            variant={
+                              order.status === "pending_confirmation" || order.status === "confirmed"
+                                ? "secondary"
+                                : order.status === "ready_to_mint" || order.status === "minting"
+                                ? "default"
+                                : order.status === "completed"
                                 ? "default"
                                 : "destructive"
-                          }
-                          className={
-                            order.status === "approved"
-                              ? "bg-green-100 text-green-700"
-                              : order.status === "rejected"
+                            }
+                            className={
+                              order.status === "completed"
+                                ? "bg-green-100 text-green-700"
+                                : order.status === "failed" || order.status === "cancelled"
                                 ? "bg-red-100 text-red-700"
+                                : order.status === "ready_to_mint"
+                                ? "bg-blue-100 text-blue-700"
                                 : ""
-                          }
-                        >
-                          {order.status}
-                        </Badge>
+                            }
+                          >
+                            {order.status.replace('_', ' ').toUpperCase()}
+                          </Badge>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {new Date(order.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent>
@@ -1861,8 +2039,13 @@ if (tokens.length === 0) {
                   </Card>
                 ))}
               </div>
+              )}
             </div>
           )}
+
+          
+
+
 
           {activeTab === "management" && (
             <div className="space-y-6">
@@ -2062,6 +2245,7 @@ if (tokens.length === 0) {
               </Card>
             </div>
           )}
+
 
           {activeTab === "transactions" && (
             <div className="space-y-6">
@@ -4210,7 +4394,7 @@ interface CreateTokenFormData {
   claimData: {
     claimTopics: string[]
     claimIssuer: string[]
-    issuerClaims: string[]
+    issuerClaims: string[][]
   }
 
   // Additional Metadata
@@ -4281,7 +4465,7 @@ const TokenCreationWizard = ({
     claimData: {
       claimTopics: ['IDENTITY_CLAIM'],
       claimIssuer: [issuerAddress || ''],
-      issuerClaims: ['VERIFIED']
+      issuerClaims: [[]]
     },
     metadata: {
       logoUrl: "",
@@ -4316,7 +4500,8 @@ const TokenCreationWizard = ({
         },
         claimData: {
           ...prev.claimData,
-          claimIissuers: [issuerAddress],
+          claimIssuer: [issuerAddress],
+          issuerClaims: prev.claimData.issuerClaims?.length ? prev.claimData.issuerClaims : [[]],
         }
       }))
     }
@@ -4435,7 +4620,7 @@ const TokenCreationWizard = ({
           claimData: {
             claimTopics: ['IDENTITY_CLAIM'],
             claimIssuer: [issuerAddress || ''],
-            issuerClaims: ['VERIFIED']
+            issuerClaims: [[]]
           },
           metadata: {
             logoUrl: "",
@@ -5159,6 +5344,101 @@ const TokenCreationWizard = ({
                     Add Trusted Issuer
                   </Button>
                 </div>
+              </div>
+              
+              <div>
+                <Label>Claim Issuers</Label>
+                          <div className="space-y-2 mt-2">
+            {formData.claimData.claimIssuer.map((issuer, index) => (
+              <div key={index} className="space-y-2 border rounded-md p-3">
+                <div className="flex items-center space-x-2">
+                  <Input
+                    value={issuer}
+                    onChange={(e) => {
+                      const newIssuers = [...formData.claimData.claimIssuer]
+                      newIssuers[index] = e.target.value
+                      updateFormData({ 
+                        claimData: { 
+                          ...formData.claimData, 
+                          claimIssuer: newIssuers 
+                        } 
+                      })
+                    }}
+                    placeholder="0x..."
+                  />
+                  {formData.claimData.claimIssuer.length > 1 && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        updateFormData({
+                          claimData: {
+                            ...formData.claimData,
+                            claimIssuer: formData.claimData.claimIssuer.filter((_, i) => i !== index),
+                            issuerClaims: (formData.claimData.issuerClaims || []).filter((_, i) => i !== index),
+                          }
+                        })
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Select claims for this issuer</Label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {["IDENTITY_CLAIM", "KYC_CLAIM", "AML_CLAIM", "ACCREDITATION_CLAIM"].map((topic) => {
+                      const selectedForIssuer = (formData.claimData.issuerClaims && formData.claimData.issuerClaims[index]) || []
+                      const checked = selectedForIssuer.includes(topic)
+                      return (
+                        <div key={topic} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`issuer-${index}-${topic}`}
+                            checked={checked}
+                            onCheckedChange={(isChecked) => {
+                              const issuerClaimsCopy = (formData.claimData.issuerClaims || []).map(arr => [...arr])
+                              // Ensure array exists for this index
+                              if (!issuerClaimsCopy[index]) issuerClaimsCopy[index] = []
+                              if (isChecked) {
+                                if (!issuerClaimsCopy[index].includes(topic)) {
+                                  issuerClaimsCopy[index].push(topic)
+                                }
+                              } else {
+                                issuerClaimsCopy[index] = issuerClaimsCopy[index].filter(t => t !== topic)
+                              }
+                              updateFormData({
+                                claimData: {
+                                  ...formData.claimData,
+                                  issuerClaims: issuerClaimsCopy
+                                }
+                              })
+                            }}
+                          />
+                          <Label htmlFor={`issuer-${index}-${topic}`} className="text-xs">{topic}</Label>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                updateFormData({
+                  claimData: {
+                    ...formData.claimData,
+                    claimIssuer: [...formData.claimData.claimIssuer, ""],
+                    issuerClaims: [...(formData.claimData.issuerClaims || []), []],
+                  }
+                })
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Claim Issuer
+            </Button>
+          </div>
               </div>
               
               <div className="border-t pt-4">

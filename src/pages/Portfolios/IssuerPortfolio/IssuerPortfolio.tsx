@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,6 +30,9 @@ import {
   Users,
   Wallet,
   X,
+  ExternalLink,
+  Clock,
+  Coins,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -50,6 +53,9 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useAccount } from 'wagmi'
+import axios from 'axios'
+import { toast } from 'sonner'
 
 const mockInvestors = [
   {
@@ -162,6 +168,10 @@ const mockPendingActions = [
 const IssuerPortfolio = () => {
   const [selectedInvestor, setSelectedInvestor] = useState<string | null>(null)
   const [actionFilter, setActionFilter] = useState("all")
+  const [pendingInvestments, setPendingInvestments] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const { address } = useAccount()
 
   const totalInvestors = mockInvestors.length
   const verifiedInvestors = mockInvestors.filter((i) => i.status === "verified").length
@@ -169,6 +179,84 @@ const IssuerPortfolio = () => {
     (sum, token) => sum + Number.parseFloat(token.marketCap.replace(/[$,]/g, "")),
     0,
   )
+
+  // Fetch pending investments for the connected issuer
+  useEffect(() => {
+    const fetchPendingInvestments = async () => {
+      if (!address) return;
+      
+      setLoading(true);
+      try {
+        const response = await axios.get(`http://localhost:5001/api/v1/investments/issuer/${address}?status=pending_confirmation,confirmed,ready_to_mint`);
+        if (response.data.success) {
+          setPendingInvestments(response.data.data.investments);
+        }
+      } catch (error) {
+        console.error('Error fetching pending investments:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPendingInvestments();
+  }, [address]);
+
+  const formatCurrency = (amount: number, currency: string = 'USD') => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+    }).format(amount);
+  };
+
+  const formatAddress = (address: string) => {
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  const handleMintTokens = async (investment: any) => {
+    try {
+      setLoading(true);
+      
+      // Update investment status to minting
+      await axios.put(`http://localhost:5001/api/v1/investments/${investment._id}/status`, {
+        status: 'minting',
+        notes: 'Token minting initiated by issuer'
+      });
+
+      // Here you would integrate with your token minting contract
+      // For now, we'll simulate the minting process
+      toast.success(`Token minting initiated for ${investment.tokenAmount} ${investment.tokenSymbol}`);
+      
+      // Refresh the investments list
+      const response = await axios.get(`http://localhost:5001/api/v1/investments/issuer/${address}?status=pending_confirmation,confirmed,ready_to_mint`);
+      if (response.data.success) {
+        setPendingInvestments(response.data.data.investments);
+      }
+    } catch (error) {
+      console.error('Error minting tokens:', error);
+      toast.error('Failed to mint tokens');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending_confirmation':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'confirmed':
+        return 'bg-blue-100 text-blue-800';
+      case 'ready_to_mint':
+        return 'bg-green-100 text-green-800';
+      case 'minting':
+        return 'bg-purple-100 text-purple-800';
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'failed':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -188,7 +276,7 @@ const IssuerPortfolio = () => {
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-4 w-4" />
               <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-                3
+                {pendingInvestments.length}
               </Badge>
             </Button>
             <DropdownMenu>
@@ -234,6 +322,10 @@ const IssuerPortfolio = () => {
             <Button variant="ghost" className="w-full justify-start">
               <Wallet className="mr-2 h-4 w-4" />
               Tokens
+            </Button>
+            <Button variant="ghost" className="w-full justify-start">
+              <Coins className="mr-2 h-4 w-4" />
+              Investments
             </Button>
             <Button variant="ghost" className="w-full justify-start">
               <Shield className="mr-2 h-4 w-4" />
@@ -289,21 +381,22 @@ const IssuerPortfolio = () => {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending Actions</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Pending Investments</CardTitle>
+                <Coins className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{mockPendingActions.length}</div>
-                <p className="text-xs text-muted-foreground">Require attention</p>
+                <div className="text-2xl font-bold">{pendingInvestments.length}</div>
+                <p className="text-xs text-muted-foreground">Awaiting token mint</p>
               </CardContent>
             </Card>
           </div>
 
           {/* Main Content Tabs */}
           <Tabs defaultValue="investors" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="investors">Investors</TabsTrigger>
               <TabsTrigger value="tokens">Tokens</TabsTrigger>
+              <TabsTrigger value="investments">Investments</TabsTrigger>
               <TabsTrigger value="actions">Pending Actions</TabsTrigger>
               <TabsTrigger value="compliance">Compliance</TabsTrigger>
             </TabsList>
@@ -633,6 +726,144 @@ const IssuerPortfolio = () => {
               </div>
             </TabsContent>
 
+            <TabsContent value="investments" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Investment Transactions</CardTitle>
+                      <CardDescription>Manage pending crypto investments and token minting</CardDescription>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button variant="outline" size="sm">
+                        <Filter className="mr-2 h-4 w-4" />
+                        Filter
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <Download className="mr-2 h-4 w-4" />
+                        Export
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                    </div>
+                  ) : pendingInvestments.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Coins className="mx-auto h-12 w-12 text-gray-400" />
+                      <h3 className="mt-2 text-sm font-semibold text-gray-900">No pending investments</h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        When investors make crypto payments, they will appear here for token minting.
+                      </p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Investor</TableHead>
+                          <TableHead>Token</TableHead>
+                          <TableHead>Investment</TableHead>
+                          <TableHead>Token Amount</TableHead>
+                          <TableHead>Payment</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Transaction</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pendingInvestments.map((investment) => (
+                          <TableRow key={investment._id}>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{formatAddress(investment.investorAddress)}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {new Date(investment.createdAt).toLocaleDateString()}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{investment.tokenSymbol}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-mono">
+                                {formatCurrency(investment.investmentAmount)} {investment.investmentCurrency}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-mono">
+                                {investment.tokenAmount} {investment.tokenSymbol}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{investment.paymentMethod}</div>
+                                <div className="text-sm text-muted-foreground font-mono">
+                                  {investment.requiredCryptoAmount} {investment.paymentMethod}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={getStatusColor(investment.status)}>
+                                {investment.status.replace('_', ' ').toUpperCase()}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(`https://sepolia.etherscan.io/tx/${investment.txHash}`, '_blank')}
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                {(investment.status === 'confirmed' || investment.status === 'ready_to_mint') && (
+                                  <Button
+                                    size="sm"
+                                    className="bg-green-600 hover:bg-green-700"
+                                    onClick={() => handleMintTokens(investment)}
+                                    disabled={loading}
+                                  >
+                                    <Coins className="mr-2 h-4 w-4" />
+                                    Mint Tokens
+                                  </Button>
+                                )}
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem>
+                                      <Eye className="mr-2 h-4 w-4" />
+                                      View Details
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem>
+                                      <Clock className="mr-2 h-4 w-4" />
+                                      Update Status
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-red-600">
+                                      Cancel Investment
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="actions" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -656,6 +887,36 @@ const IssuerPortfolio = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
+                    {/* Show investment minting actions first */}
+                    {pendingInvestments.slice(0, 3).map((investment) => (
+                      <Card key={investment._id} className="border-l-4 border-l-green-400">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                              <div className="h-10 w-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+                                <Coins className="h-5 w-5" />
+                              </div>
+                              <div>
+                                <p className="font-medium">
+                                  Token minting required for {investment.tokenAmount} {investment.tokenSymbol}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {formatAddress(investment.investorAddress)} • {new Date(investment.createdAt).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Badge className="bg-green-100 text-green-800">high</Badge>
+                              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+                                Mint Tokens
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+
+                    {/* Regular pending actions */}
                     {mockPendingActions.map((action) => (
                       <Card key={action.id} className="border-l-4 border-l-orange-400">
                         <CardContent className="p-4">

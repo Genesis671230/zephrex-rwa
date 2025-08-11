@@ -46,6 +46,7 @@ export interface ClaimStatus {
 export interface KYCSubmissionData {
   investorId: string;
   tokenAddress: string;
+  token:any;
   investorAddress: string;
   investorIdentityAddress: string;
   claimData: {
@@ -205,7 +206,7 @@ export const submitKYCVerification = async (
   try {
     // Get token data
     const st = await getSTData();
-    const filtered = st.content.filter(token=>token.symbol==tokensymbol)
+    const filtered = st.filter(token=>token.symbol==tokensymbol)
     let stData;
     if(filtered.length>0){
       stData = filtered[0]
@@ -226,7 +227,7 @@ export const submitKYCVerification = async (
     const bankDoc = documentUploads.find(doc => doc.type === 'bank');
     const fundsDoc = documentUploads.find(doc => doc.type === 'funds');
 
-    const claims = stData.claimData.data.map((claim:any) => ({
+    const claims = stData.claimTopics.map((claim:any) => ({
       name: claim.name,
       issuer: claim.issuer,
       contract: claim.contract,
@@ -234,7 +235,8 @@ export const submitKYCVerification = async (
     // Prepare the submission data
     const submissionData: KYCSubmissionData = {
       investorId:selectedAccount+stData.symbol+stData.name,
-      tokenAddress: stData.tokenAddress,
+      tokenAddress: stData.address,
+      token:stData,
       investorAddress: selectedAccount,
       investorIdentityAddress: '0x0', // This should be generated or provided
       claimData: {
@@ -273,17 +275,28 @@ export const submitKYCVerification = async (
     };
 
     // Make the API call
+    // const response = await axios.post(
+    //   'https://ig.gov-cloud.ai/pi-entity-instances-service/v2.0/schemas/6863defa2ec4242da906ed9d/instances',
+    //   {
+    //     data: [submissionData],
+    //   },
+    //   {
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //       Authorization: `Bearer ${authToken}`,
+    //     },
+    //   }
+    // );
+
     const response = await axios.post(
-      'https://ig.gov-cloud.ai/pi-entity-instances-service/v2.0/schemas/6863defa2ec4242da906ed9d/instances',
-      {
-        data: [submissionData],
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-      }
+      'http://localhost:5001/api/v1/kyc/submit',
+      submissionData,
+      // {
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //     Authorization: `Bearer ${authToken}`,
+      //   },
+      // }
     );
 
     return {

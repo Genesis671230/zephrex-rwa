@@ -5,11 +5,19 @@ const {
 const { useRpcProvider } = require('../utils/useRpcProvider');
 const config = require('../../config.json');
 const { getContractAt } = require('../utils/ethers');
+require('dotenv').config();
+
 
 async function getIdentity(address, identityFactory, signer = undefined) {
+    const config = {
+        rpc: 'https://eth-sepolia.g.alchemy.com/v2/NAR07p3fjDxxSkZMETZmz',
+        deployer: {
+            privateKey: process.env.DEPLOYER
+        }
+    }
     try {
         if (signer === undefined) {
-            signer = useRpcProvider(config.url, config.deployer.privateKey);
+            signer = useRpcProvider(config.rpc, config.deployer.privateKey);
         }
 
         console.log('[!] Getting identity for wallet with address:', address);

@@ -24,7 +24,7 @@ import DocumentsPage from './pages/Dashboards/InvestorDashboard/DocumentPage';
 import IssuerDashboard from './pages/Portfolios/IssuerPortfolio/IssuerDashboard';
 import BackOffice from './pages/BackOffice/BackOffice';
 import Applications from './pages/Applications/Applications';
-
+import IssuerRequests from './pages/Claims/IssuerRequests';
 
 
 function AppRouter() {
@@ -35,7 +35,7 @@ function AppRouter() {
         <Route path="/" element={<HomePage />} />
         <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/project/:id" element={<ProjectDetails />} />
-        <Route path="/qualification/start" element={<QualificationStart />} />
+        {/* <Route path="/qualification/start" element={<QualificationStart />} /> */}
           <Route path="/qualification/kyc-enhanced/:tokensymbol" element={<EnhancedQualificationStep />} />
         
         {/* Qualification Flow Routes */}
@@ -51,6 +51,7 @@ function AppRouter() {
 
         <Route path="/issuer/portfolio" element={<IssuerPortfolio />} />
         <Route path="/issuer/dashboard" element={<IssuerDashboard />} />
+        <Route path="/issuer/claims" element={<IssuerRequests />} />
         <Route path="/setting" element={<Profile />} />
         <Route path="/history" element={<History />} />
         <Route path="/backoffice" element={<BackOffice />} />
