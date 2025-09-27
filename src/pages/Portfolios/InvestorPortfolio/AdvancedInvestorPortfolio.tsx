@@ -20,7 +20,6 @@ import {
   Eye,
   FileText,
   MoreHorizontal,
-  PieChart,
   Shield,
   TrendingUp,
   User,
@@ -68,6 +67,10 @@ import { useWalletClient } from "wagmi"
 import InvestmentModal from "./InvestmentModal"
 import { Link } from "react-router"
 import { Layout } from "@/pages/Dashboards/InvestorDashboard/Layout"
+import { getInvestorPortfolio } from "@/api/orders"
+import { jsPDF } from "jspdf"
+import { saveAs } from "file-saver"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area } from 'recharts'
 
 // Types
 interface InvestorDetails {
@@ -327,7 +330,9 @@ const currencies = [
 
 const AdvancedInvestorPortfolio = () => {
   const [investorData, setInvestorData] = useState<InvestorData | null>(null)
+  const [portfolioData, setPortfolioData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [portfolioLoading, setPortfolioLoading] = useState(false)
   const [signerKeyApproved, setSignerKeyApproved] = useState(false)
   const [approvingSignerKey, setApprovingSignerKey] = useState(false)
   const [addingClaim, setAddingClaim] = useState<string | null>(null)
@@ -368,7 +373,7 @@ const AdvancedInvestorPortfolio = () => {
 
       if (appKitAddress) {
         const investorDetails = res.data.filter(
-          (investor: any) => investor.InvestorDetails.walletAddress?.toLowerCase() === appKitAddress.toLowerCase(),
+          (investor: any) => investor.walletAddress?.toLowerCase() === appKitAddress.toLowerCase(),
         )
         const allTokens = investorDetails.map((investor: any) => investor.tokenAddress)
 
@@ -381,6 +386,8 @@ const AdvancedInvestorPortfolio = () => {
         setInvestorData(details)
         setSignerKeyApproved(details.claimStatus?.kycVerified||true)
 
+        // Fetch portfolio data from new API
+        await fetchPortfolioData(appKitAddress)
       }
     } catch (error) {
       console.error("Error fetching investor data:", error)
@@ -389,6 +396,174 @@ const AdvancedInvestorPortfolio = () => {
       setLoading(false)
     }
   }
+
+  const fetchPortfolioData = async (walletAddress: string) => {
+    try {
+      setPortfolioLoading(true)
+      const portfolio = await getInvestorPortfolio(walletAddress, true)
+      console.log("Portfolio data:", portfolio)
+      setPortfolioData(portfolio)
+      
+      // Update transactions with real order history
+      if (portfolio.order_history) {
+        setTransactions(portfolio.order_history.map((order: any) => ({
+          id: order.id,
+          type: "investment",
+          tokenSymbol: order.token_symbol,
+          tokenName: order.token_name,
+          amount: order.expected_token_amount || '0',
+          value: order.investment_amount.toString(),
+          currency: order.investment_currency,
+          status: order.status === 'allocated' ? 'completed' : order.status === 'pending_payment' ? 'pending' : order.status,
+          date: new Date(order.created_at).toISOString().split('T')[0],
+          txHash: order.payment_tx_hash,
+          investmentAmount: order.investment_amount.toString(),
+          paymentMethod: order.payment_method,
+          referenceId: order.order_number,
+        })))
+      }
+    } catch (error) {
+      console.error("Error fetching portfolio data:", error)
+      // Don't show error toast for portfolio data as it's not critical
+    } finally {
+      setPortfolioLoading(false)
+    }
+  }
+
+  // PDF Report Generation Functions
+  const generatePortfolioReport = () => {
+    const doc = new jsPDF()
+    const currentDate = new Date().toLocaleDateString()
+    
+    // Header
+    doc.setFontSize(20)
+    doc.text('Investment Portfolio Report', 20, 30)
+    doc.setFontSize(12)
+    doc.text(`Generated: ${currentDate}`, 20, 45)
+    doc.text(`Investor: ${appKitAddress}`, 20, 55)
+    
+    // Portfolio Summary
+    doc.setFontSize(16)
+    doc.text('Portfolio Summary', 20, 75)
+    doc.setFontSize(10)
+    
+    if (portfolioData) {
+      const summary = portfolioData.portfolio_summary
+      doc.text(`Total Orders: ${summary.total_orders}`, 20, 90)
+      doc.text(`Total Invested: $${summary.total_invested}`, 20, 100)
+      doc.text(`Pending Orders: ${summary.pending_orders}`, 20, 110)
+      doc.text(`Completed Orders: ${summary.completed_orders}`, 20, 120)
+      doc.text(`SPVs Invested: ${summary.spvs_invested}`, 20, 130)
+      doc.text(`Jurisdictions: ${summary.jurisdictions.join(', ')}`, 20, 140)
+    }
+
+    // Performance Metrics
+    doc.setFontSize(16)
+    doc.text('Performance Metrics', 20, 160)
+    doc.setFontSize(10)
+    
+    if (portfolioData?.performance_metrics) {
+      const metrics = portfolioData.performance_metrics
+      doc.text(`Allocation Rate: ${(metrics.allocation_rate * 100).toFixed(1)}%`, 20, 175)
+      doc.text(`Average Order Size: $${metrics.avg_order_size}`, 20, 185)
+      doc.text(`Diversification Score: ${metrics.diversification_score}`, 20, 195)
+      doc.text(`Jurisdictional Spread: ${metrics.jurisdictional_spread}`, 20, 205)
+    }
+
+    doc.save(`portfolio-report-${appKitAddress?.slice(0, 8)}-${currentDate.replace(/\//g, '-')}.pdf`)
+    toast.success('Portfolio report downloaded successfully!')
+  }
+
+  const generateOrderReport = (order: any) => {
+    const doc = new jsPDF()
+    const currentDate = new Date().toLocaleDateString()
+    
+    doc.setFontSize(20)
+    doc.text('Investment Order Report', 20, 30)
+    doc.setFontSize(12)
+    doc.text(`Generated: ${currentDate}`, 20, 45)
+    doc.text(`Order Number: ${order.order_number}`, 20, 55)
+    
+    doc.setFontSize(16)
+    doc.text('Order Details', 20, 75)
+    doc.setFontSize(10)
+    
+    doc.text(`Status: ${order.status.toUpperCase()}`, 20, 90)
+    doc.text(`Token Symbol: ${order.token_symbol}`, 20, 100)
+    doc.text(`Investment Amount: ${order.investment_amount} ${order.investment_currency}`, 20, 110)
+    doc.text(`Expected Tokens: ${order.expected_token_amount}`, 20, 120)
+    doc.text(`Created: ${new Date(order.created_at).toLocaleDateString()}`, 20, 130)
+
+    doc.save(`order-report-${order.order_number}.pdf`)
+    toast.success('Order report downloaded successfully!')
+  }
+
+  // Export to CSV
+  const exportToCSV = () => {
+    if (!portfolioData?.order_history) {
+      toast.error('No order data to export')
+      return
+    }
+
+    const headers = ['Order Number', 'Token Symbol', 'Investment Amount', 'Currency', 'Expected Tokens', 'Status', 'Created Date']
+    const csvContent = [
+      headers.join(','),
+      ...portfolioData.order_history.map((order: any) => [
+        order.order_number,
+        order.token_symbol,
+        order.investment_amount,
+        order.investment_currency,
+        order.expected_token_amount || '0',
+        order.status,
+        new Date(order.created_at).toLocaleDateString()
+      ].join(','))
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    saveAs(blob, `portfolio-orders-${appKitAddress?.slice(0, 8)}.csv`)
+    toast.success('Order data exported to CSV!')
+  }
+
+  // Chart Data Preparation
+  const prepareChartData = () => {
+    if (!portfolioData?.order_history) return { investmentTrend: [], statusDistribution: [], currencyBreakdown: [] }
+
+    const orders = portfolioData.order_history
+
+    // Investment trend over time
+    const investmentTrend = orders.map((order: any, index: number) => ({
+      date: new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      amount: order.investment_amount,
+      cumulative: orders.slice(0, index + 1).reduce((sum: number, o: any) => sum + o.investment_amount, 0)
+    }))
+
+    // Status distribution
+    const statusCounts = orders.reduce((acc: any, order: any) => {
+      acc[order.status] = (acc[order.status] || 0) + 1
+      return acc
+    }, {})
+    
+    const statusDistribution = Object.entries(statusCounts).map(([status, count]) => ({
+      name: status.replace('_', ' ').toUpperCase(),
+      value: count as number
+    }))
+
+    // Currency breakdown
+    const currencyCounts = orders.reduce((acc: any, order: any) => {
+      acc[order.investment_currency] = (acc[order.investment_currency] || 0) + order.investment_amount
+      return acc
+    }, {})
+    
+    const currencyBreakdown = Object.entries(currencyCounts).map(([currency, amount]) => ({
+      currency,
+      amount: amount as number
+    }))
+
+    return { investmentTrend, statusDistribution, currencyBreakdown }
+  }
+
+  const chartData = prepareChartData()
+  const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe', '#00c49f']
 
   useEffect(() => {
     fetchInvestorData()
@@ -765,34 +940,102 @@ const AdvancedInvestorPortfolio = () => {
           <div className="mb-6 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             <Card className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Portfolio</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Invested</CardTitle>
                 <DollarSign className="h-4 w-4" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">$12,450.75</div>
-                <p className="text-xs opacity-80">+8.2% this month</p>
+                <div className="text-2xl font-bold">
+                  {portfolioLoading ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    `$${portfolioData?.portfolio_summary?.total_invested || '0'}`
+                  )}
+                </div>
+                <p className="text-xs opacity-80">
+                  {portfolioData?.portfolio_summary?.total_orders || 0} total orders
+                </p>
+                <div className="flex items-center space-x-2 mt-2">
+                  <Button 
+                    size="sm" 
+                    variant="secondary" 
+                    className="bg-white/20 hover:bg-white/30 text-white border-none text-xs"
+                    onClick={generatePortfolioReport}
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    PDF Report
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Investments</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Pending Orders</CardTitle>
+                <Clock className="h-4 w-4 text-orange-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">3</div>
-                <p className="text-xs text-muted-foreground">Across 2 tokens</p>
+                <div className="text-2xl font-bold">
+                  {portfolioLoading ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    portfolioData?.portfolio_summary?.pending_orders || 0
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">Awaiting payment</p>
+                <div className="mt-2">
+                  <Progress 
+                    value={(portfolioData?.portfolio_summary?.pending_orders || 0) / Math.max(portfolioData?.portfolio_summary?.total_orders || 1, 1) * 100} 
+                    className="h-2" 
+                  />
+                </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Claims Added</CardTitle>
-                <Shield className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Allocation Rate</CardTitle>
+                <TrendingUp className="h-4 w-4 text-green-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{selectedClaims.length}</div>
-                <p className="text-xs text-muted-foreground">of {investorData.claimData?.data?.length} available</p>
+                <div className="text-2xl font-bold">
+                  {portfolioLoading ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    `${(portfolioData?.performance_metrics?.allocation_rate * 100 || 0).toFixed(1)}%`
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {portfolioData?.portfolio_summary?.completed_orders || 0} allocated
+                </p>
+                <div className="mt-2">
+                  <Badge variant={portfolioData?.performance_metrics?.allocation_rate > 0.5 ? "default" : "secondary"}>
+                    {portfolioData?.performance_metrics?.allocation_rate > 0.5 ? "Good" : "Pending"}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Jurisdictions</CardTitle>
+                <Shield className="h-4 w-4 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {portfolioLoading ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    portfolioData?.portfolio_summary?.jurisdictions?.length || 0
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {portfolioData?.portfolio_summary?.jurisdictions?.join(', ') || 'None'}
+                </p>
+                <div className="mt-2">
+                  <Badge variant="outline">
+                    Diversification: {portfolioData?.performance_metrics?.diversification_score || 0}
+                  </Badge>
+                </div>
               </CardContent>
             </Card>
 
@@ -802,8 +1045,203 @@ const AdvancedInvestorPortfolio = () => {
                 <CheckCircle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">{complianceScore}%</div>
-                <Progress value={complianceScore} className="mt-2" />
+                <div className="text-2xl font-bold text-green-600">
+                  {portfolioLoading ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    portfolioData?.compliance_summary?.overall_score 
+                      ? `${portfolioData.compliance_summary.overall_score}%`
+                      : `${complianceScore}%`
+                  )}
+                </div>
+                <Progress 
+                  value={portfolioData?.compliance_summary?.overall_score || complianceScore} 
+                  className="mt-2" 
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Enhanced Analytics Section */}
+          <div className="mb-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center">
+                  <TrendingUp className="h-5 w-5 mr-2" />
+                  Investment Trend
+                </CardTitle>
+                <div className="flex space-x-2">
+                  <Button size="sm" variant="outline" onClick={exportToCSV}>
+                    <Download className="h-4 w-4 mr-1" />
+                    Export CSV
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {chartData.investmentTrend.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <AreaChart data={chartData.investmentTrend}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip formatter={(value: any) => [`$${value}`, 'Amount']} />
+                      <Area type="monotone" dataKey="cumulative" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                    No investment data available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center">
+                  <BarChart3 className="h-5 w-5 mr-2" />
+                  Order Status Distribution
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {chartData.statusDistribution.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={chartData.statusDistribution}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={({ name, value }) => `${name}: ${value}`}
+                      >
+                        {chartData.statusDistribution.map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                    No status data available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center">
+                  <DollarSign className="h-5 w-5 mr-2" />
+                  Currency Breakdown
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {chartData.currencyBreakdown.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={chartData.currencyBreakdown}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="currency" />
+                      <YAxis />
+                      <Tooltip formatter={(value: any) => [`$${value}`, 'Amount']} />
+                      <Bar dataKey="amount" fill="#82ca9d" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                    No currency data available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Performance Metrics & Compliance Overview */}
+          <div className="mb-6 grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center">
+                  <Shield className="h-5 w-5 mr-2" />
+                  Compliance Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Regulatory Status</span>
+                  <Badge variant={portfolioData?.compliance_summary?.regulatory_status === 'compliant' ? 'default' : 'destructive'}>
+                    {portfolioData?.compliance_summary?.regulatory_status || 'Review Required'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Recent Events</span>
+                  <span className="text-sm text-muted-foreground">
+                    {portfolioData?.compliance_summary?.recent_events || 0} this month
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Last Activity</span>
+                  <span className="text-sm text-muted-foreground">
+                    {portfolioData?.compliance_summary?.last_activity 
+                      ? new Date(portfolioData.compliance_summary.last_activity).toLocaleDateString()
+                      : 'No recent activity'
+                    }
+                  </span>
+                </div>
+                <Separator />
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Jurisdictional Compliance</span>
+                    <span>
+                      {portfolioData?.portfolio_summary?.jurisdictions?.join(', ') || 'Not specified'}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center">
+                  <TrendingUp className="h-5 w-5 mr-2" />
+                  Performance Overview
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {(portfolioData?.performance_metrics?.allocation_rate * 100 || 0).toFixed(1)}%
+                    </div>
+                    <div className="text-sm text-muted-foreground">Allocation Rate</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      ${portfolioData?.performance_metrics?.avg_order_size || 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Avg Order Size</div>
+                  </div>
+                </div>
+                <Separator />
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Diversification Score</span>
+                    <span className="font-medium">
+                      {portfolioData?.performance_metrics?.diversification_score || 0}/10
+                    </span>
+                  </div>
+                  <Progress 
+                    value={(portfolioData?.performance_metrics?.diversification_score || 0) * 10} 
+                    className="h-2" 
+                  />
+                  <div className="flex justify-between text-sm">
+                    <span>Jurisdictional Spread</span>
+                    <span className="font-medium">
+                      {portfolioData?.performance_metrics?.jurisdictional_spread || 0} region(s)
+                    </span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -1105,8 +1543,17 @@ const AdvancedInvestorPortfolio = () => {
                       <CardDescription>Your security token portfolio</CardDescription>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="sm">
-                        <RefreshCw className="mr-2 h-4 w-4" />
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => appKitAddress && fetchPortfolioData(appKitAddress)}
+                        disabled={portfolioLoading}
+                      >
+                        {portfolioLoading ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                        )}
                         Refresh
                       </Button>
                       <Button variant="outline" size="sm">
@@ -1117,75 +1564,108 @@ const AdvancedInvestorPortfolio = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Token</TableHead>
-                        <TableHead>Balance</TableHead>
-                        <TableHead>Price</TableHead>
-                        <TableHead>Value</TableHead>
-                        <TableHead>24h Change</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell>
-                          <div className="flex items-center space-x-3">
-                            <div className="h-8 w-8 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold">
-                              GB
-                            </div>
-                            <div>
-                              <div className="font-medium">GBB</div>
-                              <div className="text-sm text-muted-foreground">Green Brew Bond</div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-mono">125.50</TableCell>
-                        <TableCell className="font-mono">$10.43</TableCell>
-                        <TableCell className="font-mono font-medium">$1,308.97</TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-1">
-                            <TrendingUp className="h-4 w-4 text-green-600" />
-                            <span className="text-green-600 text-sm">+2.3%</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Sheet open={p2pDrawerOpen} onOpenChange={setP2pDrawerOpen}>
-                              <SheetTrigger asChild>
-                                <Button variant="outline" size="sm" onClick={() => setP2pTokenSymbol("GBB")}>
-                                  <Send className="mr-2 h-4 w-4" />
-                                  Transfer
-                                </Button>
-                              </SheetTrigger>
-                            </Sheet>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <Copy className="mr-2 h-4 w-4" />
-                                  Copy Address
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <Download className="mr-2 h-4 w-4" />
-                                  Export Data
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
+                  {portfolioLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin" />
+                      <span className="ml-2">Loading portfolio data...</span>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Token</TableHead>
+                          <TableHead>Balance</TableHead>
+                          <TableHead>Price</TableHead>
+                          <TableHead>Value</TableHead>
+                          <TableHead>24h Change</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {portfolioData?.token_holdings?.length > 0 ? (
+                          portfolioData.token_holdings.map((holding: any) => (
+                            <TableRow key={holding.token_address}>
+                              <TableCell>
+                                <div className="flex items-center space-x-3">
+                                  <div className="h-8 w-8 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold">
+                                    {holding.token_symbol?.slice(0, 2) || 'TK'}
+                                  </div>
+                                  <div>
+                                    <div className="font-medium">{holding.token_symbol}</div>
+                                    <div className="text-sm text-muted-foreground">{holding.token_name}</div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="font-mono">{holding.balance || '0'}</TableCell>
+                              <TableCell className="font-mono">${holding.price_per_token?.toFixed(2) || '0.00'}</TableCell>
+                              <TableCell className="font-mono font-medium">${holding.value_usd?.toFixed(2) || '0.00'}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center space-x-1">
+                                  {holding.change_24h_percent !== undefined ? (
+                                    <>
+                                      {holding.change_24h_percent >= 0 ? (
+                                        <TrendingUp className="h-4 w-4 text-green-600" />
+                                      ) : (
+                                        <TrendingUp className="h-4 w-4 text-red-600 rotate-180" />
+                                      )}
+                                      <span className={`text-sm ${holding.change_24h_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        {holding.change_24h_percent >= 0 ? '+' : ''}{holding.change_24h_percent.toFixed(1)}%
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="text-sm text-gray-500">N/A</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center space-x-2">
+                                  <Sheet open={p2pDrawerOpen} onOpenChange={setP2pDrawerOpen}>
+                                    <SheetTrigger asChild>
+                                      <Button variant="outline" size="sm" onClick={() => setP2pTokenSymbol(holding.token_symbol)}>
+                                        <Send className="mr-2 h-4 w-4" />
+                                        Transfer
+                                      </Button>
+                                    </SheetTrigger>
+                                  </Sheet>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem>
+                                        <Eye className="mr-2 h-4 w-4" />
+                                        View Details
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => copyToClipboard(holding.token_address)}>
+                                        <Copy className="mr-2 h-4 w-4" />
+                                        Copy Address
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem>
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Export Data
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8">
+                              <div className="text-gray-500">
+                                <Wallet className="mx-auto h-12 w-12 mb-2 opacity-50" />
+                                <p>No token holdings found</p>
+                                <p className="text-sm">Start investing to see your portfolio here</p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1202,9 +1682,13 @@ const AdvancedInvestorPortfolio = () => {
                     <Filter className="mr-2 h-4 w-4" />
                     Filter
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={exportToCSV}>
                     <Download className="mr-2 h-4 w-4" />
-                    Export
+                    Export Orders
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={generatePortfolioReport}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Portfolio Report
                   </Button>
                 </div>
               </div>
@@ -1268,13 +1752,14 @@ const AdvancedInvestorPortfolio = () => {
                           </TableCell>
                           <TableCell>{tx.date}</TableCell>
                           <TableCell>
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  View
-                                </Button>
-                              </DialogTrigger>
+                            <div className="flex items-center space-x-2">
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    View
+                                  </Button>
+                                </DialogTrigger>
                               <DialogContent className="max-w-2xl">
                                 <DialogHeader>
                                   <DialogTitle>Transaction Details</DialogTitle>
@@ -1514,6 +1999,27 @@ const AdvancedInvestorPortfolio = () => {
                                 </div>
                               </DialogContent>
                             </Dialog>
+                            
+                            {/* PDF Download Button for Individual Orders */}
+                            {tx.referenceId && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => {
+                                  // Find the original order from portfolio data
+                                  const order = portfolioData?.order_history?.find(
+                                    (o: any) => o.order_number === tx.referenceId
+                                  );
+                                  if (order) {
+                                    generateOrderReport(order);
+                                  }
+                                }}
+                              >
+                                <Download className="mr-2 h-4 w-4" />
+                                PDF
+                              </Button>
+                            )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}

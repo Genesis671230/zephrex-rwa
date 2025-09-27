@@ -19,6 +19,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   ArrowLeft,
   Shield,
@@ -65,6 +66,7 @@ import { parseEther, formatEther, parseUnits, formatUnits } from 'viem';
 import { sepolia } from 'wagmi/chains';
 import useEligibility from '@/hooks/use-eligibility';
 import { toast } from 'sonner';
+import { createOrder } from '@/api/orders';
 
 // Enhanced interfaces for ADNOC token data
 interface TokenMetrics {
@@ -220,6 +222,19 @@ const AdvancedInvestmentModal = ({
 
   const { address, isConnected, chainId } = useAccount();
   const { switchChain } = useSwitchChain();
+  
+
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [isUSPerson, setIsUSPerson] = useState<null | boolean>(null);
+  const [pepStatus, setPepStatus] = useState<'none' | 'self' | 'family' | 'associate' | null>('none');
+  const [marketingConsent, setMarketingConsent] = useState(false);
+
+  const [creatingOrder, setCreatingOrder] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const [createdOrderNumber, setCreatedOrderNumber] = useState<string | null>(null);
 
   // Get balances for different tokens
   const { data: ethBalance } = useBalance({ address });
@@ -232,18 +247,15 @@ const AdvancedInvestmentModal = ({
     token: USDC_ADDRESS as `0x${string}`,
   });
 
-  const { writeContract, data: contractData, isPending: isContractPending } = useWriteContract();
-  const { isLoading: isTransactionLoading, isSuccess: isTransactionSuccess } = useWaitForTransactionReceipt({
-    hash: contractData,
-  });
+  const { writeContract } = useWriteContract();
 
   const steps = [
-    { title: 'Investment Amount', description: 'Enter your investment amount' },
-    { title: 'Payment Method', description: 'Choose cryptocurrency' },
-    { title: 'Network & Wallet', description: 'Verify network and balance' },
-    { title: 'Review & Confirm', description: 'Review investment details' },
-    { title: 'Payment', description: 'Complete crypto transfer' },
-    { title: 'Confirmation', description: 'Transaction submitted' }
+    { title: 'Amount', description: 'Investment details', icon: DollarSign },
+    { title: 'Payment', description: 'Choose method', icon: CreditCard },
+    { title: 'Contact', description: 'Your information', icon: User },
+    { title: 'Compliance', description: 'Declarations', icon: Shield },
+    { title: 'Review', description: 'Confirm order', icon: Eye },
+    { title: 'Complete', description: 'Finalize payment', icon: CheckCircle }
   ];
 
   const calculateRequiredAmount = () => {
@@ -311,7 +323,46 @@ const AdvancedInvestmentModal = ({
       }
     }
   };
-
+  const switchToSepolia = async () => {
+    if (!window.ethereum) {
+      toast.error('MetaMask not detected');
+      return false;
+    }
+  
+    try {
+      await (window as any).ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0xaa36a7' }], // Sepolia chain ID in hex
+      });
+      return true;
+    } catch (switchError: any) {
+      // This error code 4902 indicates the chain is not added to MetaMask
+      if (switchError.code === 4902) {
+        try {
+          await (window as any).ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [
+              {
+                chainId: '0xaa36a7',
+                chainName: 'Sepolia Test Network',
+                rpcUrls: ['https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID'] /* RPC URL */,
+                nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 },
+                blockExplorerUrls: ['https://sepolia.etherscan.io'],
+              },
+            ],
+          });
+          return true;
+        } catch (addError) {
+          console.error('Failed to add Sepolia network:', addError);
+          toast.error('Failed to add Sepolia network to MetaMask');
+          return false;
+        }
+      }
+      console.error('Failed to switch to Sepolia:', switchError);
+      toast.error('Please switch MetaMask to Sepolia manually');
+      return false;
+    }
+  };
   const processPayment = async () => {
     if (!address || !token?.ownerAddress) {
       toast.error('Wallet not connected or token owner not found');
@@ -320,26 +371,39 @@ const AdvancedInvestmentModal = ({
 
     setLoading(true);
     try {
+      const switched = await switchToSepolia();
+      if (!switched) return;
+
       let txHash: string = '';
 
-      if (investmentData.cryptoToken === 'ETH') {
+      if (investmentData) {
         // Direct ETH transfer - we need to send ETH to the token owner address
         // Since writeContract is for contract calls, we'll need to use a different approach
         // For now, let's simulate the transaction
+        const amount = parseEther('0.0001');
+        const txResponse = await (window as any).ethereum?.request({
+          method: 'eth_sendTransaction',
+          params: [{
+            from: address,
+            to: token.ownerAddress,
+            value: amount.toString(),
+          }],
+        });
+        
         toast.info('ETH transfers require a different implementation - using simulation');
-        txHash = 'simulated_eth_tx_' + Date.now();
+        txHash = Date.now()+ txResponse;
       } else {
         // ERC20 token transfer
         const tokenAddress = investmentData.cryptoToken === 'USDT' ? USDT_ADDRESS : USDC_ADDRESS;
         const decimals = investmentData.cryptoToken === 'USDT' ? 6 : 6;
         
-        const result = await writeContract({
+        await writeContract({
           address: tokenAddress as `0x${string}`,
           abi: ERC20_ABI,
           functionName: 'transfer',
           args: [token.ownerAddress as `0x${string}`, parseUnits(requiredAmount, decimals)],
         });
-        txHash = result || '';
+        txHash = 'payment_tx_' + Date.now(); // Mock transaction hash for demo
       }
 
       setTransactionHash(txHash);
@@ -358,6 +422,48 @@ const AdvancedInvestmentModal = ({
     }
   };
 
+  const handleCreateOrder = async () => {
+    if (!address || !token) return;
+    if (!termsAccepted) {
+      alert('Please accept terms to continue');
+      return;
+    }
+    try {
+      setCreatingOrder(true);
+      const order = await createOrder({
+        investor_wallet: address.toLowerCase(),
+        token_address: token.deploymentInfo.tokenAddress,
+        investment_amount: Number(investmentData.amount),
+        // cast to union types
+        investment_currency: (investmentData.currency as 'USD' | 'AED' | 'CHF' | 'SGD' | 'EUR' | 'USDC' | 'USDT'),
+        payment_method: (investmentData.cryptoToken === 'bank' ? 'bank_wire' : 'wallet'),
+        network_id: typeof chainId === 'number' ? chainId : null,
+        delivery_address: address,
+        investor_contact: {
+          name: contactName || undefined,
+          email: contactEmail || undefined,
+          phone: contactPhone || undefined,
+        },
+        declarations: {
+          terms_accepted: termsAccepted,
+          us_person: isUSPerson,
+          pep_status: pepStatus,
+          marketing_consent: marketingConsent,
+        },
+      });
+      setCreatedOrderId(order.id);
+      setCreatedOrderNumber(order.order_number);
+      // Payment confirmation should be handled after wallet transaction flow completes
+      // Proceed to next UI step
+      setCurrentStep(5); // Move to confirmation step
+      toast.success('Order created successfully!');
+    } catch (e: any) {
+      alert(e?.message || 'Failed to create order');
+    } finally {
+      setCreatingOrder(false);
+    }
+  };
+
   const storeTransactionInDB = async (txHash: string) => {
     try {
       const transactionData = {
@@ -368,6 +474,9 @@ const AdvancedInvestmentModal = ({
         investmentAmount: investmentData.amount,
         investmentCurrency: investmentData.currency,
         tokenAmount: investmentData.tokenAmount,
+        investor_wallet: address,
+        token_address: token?.address,
+        investment_amount: investmentData.amount,
         paymentMethod: investmentData.cryptoToken,
         requiredCryptoAmount: requiredAmount,
         tokenOwnerAddress: token?.ownerAddress,
@@ -388,42 +497,59 @@ const AdvancedInvestmentModal = ({
       case 0:
         return (
           <div className="space-y-6">
-            <div className="space-y-3">
-              <Label>Investment Currency</Label>
-              <RadioGroup
-                value={investmentData.currency}
-                onValueChange={(value) => setInvestmentData(prev => ({ ...prev, currency: value }))}
-                className="flex space-x-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="USD" id="usd" />
-                  <Label htmlFor="usd">USD</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="EUR" id="eur" />
-                  <Label htmlFor="eur">EUR</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="AED" id="aed" />
-                  <Label htmlFor="aed">AED</Label>
-                </div>
-              </RadioGroup>
+            <div className="text-center mb-6">
+              <DollarSign className="mx-auto h-12 w-12 text-green-600 mb-3" />
+              <h3 className="text-xl font-semibold mb-2">Investment Details</h3>
+              <p className="text-gray-600">Enter your investment amount and currency</p>
             </div>
 
-            <div className="space-y-3">
-              <Label htmlFor="amount">Investment Amount</Label>
-              <Input
-                id="amount"
-                type="number"
-                placeholder={`Minimum ${token?.minInvestment} ${investmentData.currency}`}
-                value={investmentData.amount}
-                onChange={(e) => setInvestmentData(prev => ({ ...prev, amount: e.target.value }))}
-              />
-              <div className="text-xs text-gray-500 space-y-1">
-                <p>Min: {token?.minInvestment} {investmentData.currency}</p>
-                <p>Max: {token?.maxInvestment} {investmentData.currency}</p>
-                <p>You will receive: {investmentData.tokenAmount} {token?.symbol}</p>
-                <p>Token price: {formatCurrency(token?.initialPrice || '0')} per token</p>
+            <div className="space-y-4">
+              <div>
+                <Label className="text-base font-medium">Investment Currency</Label>
+                <RadioGroup
+                  value={investmentData.currency}
+                  onValueChange={(value) => setInvestmentData(prev => ({ ...prev, currency: value }))}
+                  className="grid grid-cols-3 gap-4 mt-3"
+                >
+                  {['USD', 'EUR', 'AED'].map((currency) => (
+                    <div key={currency} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
+                      <RadioGroupItem value={currency} id={currency.toLowerCase()} />
+                      <Label htmlFor={currency.toLowerCase()} className="font-medium">{currency}</Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+
+              <div>
+                <Label htmlFor="amount" className="text-base font-medium">Investment Amount</Label>
+                <div className="relative mt-2">
+                  <Input
+                    id="amount"
+                    type="number"
+                    placeholder={`Minimum ${token?.minInvestment} ${investmentData.currency}`}
+                    value={investmentData.amount}
+                    onChange={(e) => setInvestmentData(prev => ({ ...prev, amount: e.target.value }))}
+                    className="text-lg py-3"
+                  />
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
+                    {investmentData.currency}
+                  </span>
+                </div>
+                
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Investment Range:</span>
+                    <span className="font-medium">{token?.minInvestment} - {token?.maxInvestment} {investmentData.currency}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Token Price:</span>
+                    <span className="font-medium">{formatCurrency(token?.initialPrice || '0')}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">You will receive:</span>
+                    <span className="font-bold text-green-600">{investmentData.tokenAmount} {token?.symbol}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -483,57 +609,61 @@ const AdvancedInvestmentModal = ({
       case 2:
         return (
           <div className="space-y-6">
+            <div className="text-center mb-6">
+              <User className="mx-auto h-12 w-12 text-blue-600 mb-3" />
+              <h3 className="text-xl font-semibold mb-2">Contact Information</h3>
+              <p className="text-gray-600">Provide your contact details for order updates</p>
+            </div>
+
             <div className="space-y-4">
-              <h3 className="font-semibold">Network & Wallet Verification</h3>
-              
-              <Card className={`p-4 ${chainId === sepolia.id ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Network Status</p>
-                    <p className="text-sm text-gray-600">
-                      {chainId === sepolia.id ? 'Connected to Sepolia' : `Connected to Chain ${chainId}`}
-                    </p>
-                  </div>
-                  {chainId !== sepolia.id && (
-                    <Button onClick={handleNetworkSwitch} size="sm">
-                      <ArrowRightLeft className="mr-2 h-4 w-4" />
-                      Switch to Sepolia
-                    </Button>
-                  )}
-                </div>
-              </Card>
+              <div>
+                <Label htmlFor="contact-name" className="text-base font-medium">Full Name</Label>
+                <Input
+                  id="contact-name"
+                  type="text"
+                  placeholder="Enter your full name"
+                  value={contactName}
+                  onChange={(e) => setContactName(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
 
-              <Card className={`p-4 ${hasBalance ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Balance Check</p>
-                    <p className="text-sm text-gray-600">
-                      Required: {requiredAmount} {investmentData.cryptoToken}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {hasBalance ? '✅ Sufficient balance' : '⚠️ Insufficient balance'}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">Your Balance:</p>
-                    <p className="text-lg font-bold">
-                      {investmentData.cryptoToken === 'ETH' 
-                        ? `${ethBalance ? Number(formatEther(ethBalance.value)).toFixed(6) : '0'} ETH`
-                        : investmentData.cryptoToken === 'USDT'
-                        ? `${usdtBalance ? formatUnits(usdtBalance.value, 6) : '0'} USDT`
-                        : `${usdcBalance ? formatUnits(usdcBalance.value, 6) : '0'} USDC`
-                      }
-                    </p>
-                  </div>
-                </div>
-              </Card>
+              <div>
+                <Label htmlFor="contact-email" className="text-base font-medium">Email Address</Label>
+                <Input
+                  id="contact-email"
+                  type="email"
+                  placeholder="your.email@example.com"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  className="mt-2"
+                />
+                <p className="text-sm text-gray-500 mt-1">We'll send order updates to this email</p>
+              </div>
 
-              <Card className="p-4 bg-blue-50 border-blue-200">
-                <div>
-                  <p className="font-medium">Connected Wallet</p>
-                  <p className="text-sm font-mono text-gray-600">{address}</p>
+              <div>
+                <Label htmlFor="contact-phone" className="text-base font-medium">Phone Number <span className="text-gray-400">(Optional)</span></Label>
+                <Input
+                  id="contact-phone"
+                  type="tel"
+                  placeholder="+1 (555) 123-4567"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start space-x-3">
+                  <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">Privacy Notice</p>
+                    <p className="text-sm text-blue-700 mt-1">
+                      Your contact information will only be used for order-related communications and compliance purposes.
+                    </p>
+                  </div>
                 </div>
-              </Card>
+              </div>
             </div>
           </div>
         );
@@ -541,49 +671,97 @@ const AdvancedInvestmentModal = ({
       case 3:
         return (
           <div className="space-y-6">
-            <div className="space-y-4">
-              <h3 className="font-semibold">Investment Summary</h3>
-              <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Token:</span>
-                  <span className="font-mono">{token?.symbol}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Investment Amount:</span>
-                  <span className="font-mono">{investmentData.amount} {investmentData.currency}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Token Amount:</span>
-                  <span className="font-mono">{investmentData.tokenAmount} {token?.symbol}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Payment Method:</span>
-                  <span className="capitalize">{investmentData.cryptoToken}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Required Amount:</span>
-                  <span className="font-mono font-bold">{requiredAmount} {investmentData.cryptoToken}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Recipient:</span>
-                  <span className="font-mono text-xs">{token?.ownerAddress}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Network:</span>
-                  <span>Sepolia Testnet</span>
-                </div>
-              </div>
+            <div className="text-center mb-6">
+              <Shield className="mx-auto h-12 w-12 text-amber-600 mb-3" />
+              <h3 className="text-xl font-semibold mb-2">Compliance Declarations</h3>
+              <p className="text-gray-600">Please confirm the following statements</p>
             </div>
 
-            <div className="space-y-3">
-              <Label htmlFor="notes">Additional Notes (Optional)</Label>
-              <Textarea
-                id="notes"
-                placeholder="Any additional information..."
-                value={investmentData.notes}
-                onChange={(e) => setInvestmentData(prev => ({ ...prev, notes: e.target.value }))}
-                rows={3}
-              />
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-start space-x-3 p-4 border border-red-200 bg-red-50 rounded-lg">
+                  <Checkbox
+                    id="terms-accepted"
+                    checked={termsAccepted}
+                    onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="terms-accepted" className="text-base font-medium text-red-900 cursor-pointer">
+                      I accept the Terms and Conditions *
+                    </Label>
+                    <p className="text-sm text-red-700 mt-1">
+                      Required: You must accept the terms to proceed with the investment.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                  <Label className="text-base font-medium">Are you a US person for tax purposes?</Label>
+                  <RadioGroup
+                    value={isUSPerson === null ? 'unknown' : isUSPerson ? 'yes' : 'no'}
+                    onValueChange={(value) => setIsUSPerson(value === 'unknown' ? null : value === 'yes')}
+                    className="mt-3"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="no" id="us-person-no" />
+                      <Label htmlFor="us-person-no">No</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="yes" id="us-person-yes" />
+                      <Label htmlFor="us-person-yes">Yes</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="unknown" id="us-person-unknown" />
+                      <Label htmlFor="us-person-unknown">Prefer not to answer</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                  <Label className="text-base font-medium">Political Exposure Status</Label>
+                  <Select value={pepStatus || 'none'} onValueChange={(value) => setPepStatus(value as any)}>
+                    <SelectTrigger className="mt-3">
+                      <SelectValue placeholder="Select your status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No political exposure</SelectItem>
+                      <SelectItem value="self">I am a politically exposed person</SelectItem>
+                      <SelectItem value="family">Close family member of PEP</SelectItem>
+                      <SelectItem value="associate">Close associate of PEP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                  <Checkbox
+                    id="marketing-consent"
+                    checked={marketingConsent}
+                    onCheckedChange={(checked) => setMarketingConsent(checked as boolean)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="marketing-consent" className="text-base font-medium cursor-pointer">
+                      Marketing Communications
+                    </Label>
+                    <p className="text-sm text-gray-600 mt-1">
+                      I consent to receive marketing communications about similar investment opportunities.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-start space-x-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-900">Important Notice</p>
+                    <p className="text-sm text-amber-700 mt-1">
+                      By proceeding, you acknowledge that you understand the risks associated with this investment and that you meet all applicable eligibility requirements.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -591,21 +769,153 @@ const AdvancedInvestmentModal = ({
       case 4:
         return (
           <div className="space-y-6">
-            <div className="text-center space-y-4">
-              <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-                <CreditCard className="w-8 h-8 text-blue-600" />
+            <div className="text-center mb-6">
+              <Eye className="mx-auto h-12 w-12 text-purple-600 mb-3" />
+              <h3 className="text-xl font-semibold mb-2">Review Your Order</h3>
+              <p className="text-gray-600">Please review all details before proceeding</p>
+            </div>
+
+            <div className="space-y-6">
+              {/* Investment Summary */}
+              <Card className="border-2 border-purple-200">
+                <CardHeader className="bg-purple-50">
+                  <CardTitle className="text-lg flex items-center">
+                    <DollarSign className="mr-2 h-5 w-5 text-purple-600" />
+                    Investment Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-gray-600 text-sm">Token</span>
+                      <p className="font-bold text-lg">{token?.symbol}</p>
+                      <p className="text-gray-500 text-sm">{token?.name}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 text-sm">Investment Amount</span>
+                      <p className="font-bold text-lg">{investmentData.amount} {investmentData.currency}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 text-sm">Token Amount</span>
+                      <p className="font-bold text-lg text-green-600">{investmentData.tokenAmount} {token?.symbol}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600 text-sm">Payment Method</span>
+                      <p className="font-bold text-lg capitalize">{investmentData.cryptoToken}</p>
+                    </div>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                    <span className="font-medium">Required Payment</span>
+                    <span className="font-bold text-xl text-green-600">{requiredAmount} {investmentData.cryptoToken}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Contact Information */}
+              <Card>
+                <CardHeader className="bg-blue-50">
+                  <CardTitle className="text-lg flex items-center">
+                    <User className="mr-2 h-5 w-5 text-blue-600" />
+                    Contact Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-3">
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Name:</span>
+                      <span className="font-medium">{contactName || 'Not provided'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Email:</span>
+                      <span className="font-medium">{contactEmail || 'Not provided'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Phone:</span>
+                      <span className="font-medium">{contactPhone || 'Not provided'}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Compliance Summary */}
+              <Card>
+                <CardHeader className="bg-amber-50">
+                  <CardTitle className="text-lg flex items-center">
+                    <Shield className="mr-2 h-5 w-5 text-amber-600" />
+                    Compliance Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span>Terms & Conditions</span>
+                    <Badge variant={termsAccepted ? "default" : "destructive"} className={termsAccepted ? "bg-green-100 text-green-800" : ""}>
+                      {termsAccepted ? "Accepted" : "Required"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>US Person Status</span>
+                    <span className="text-sm text-gray-600">
+                      {isUSPerson === null ? 'Not specified' : isUSPerson ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>PEP Status</span>
+                    <span className="text-sm text-gray-600 capitalize">
+                      {pepStatus === 'none' ? 'No exposure' : pepStatus || 'Not specified'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Marketing Consent</span>
+                    <span className="text-sm text-gray-600">
+                      {marketingConsent ? 'Consented' : 'Declined'}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Network & Wallet Info */}
+              <Card>
+                <CardHeader className="bg-gray-50">
+                  <CardTitle className="text-lg flex items-center">
+                    <Wallet className="mr-2 h-5 w-5 text-gray-600" />
+                    Wallet & Network
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Wallet Address:</span>
+                    <span className="font-mono text-sm">{address?.slice(0, 10)}...{address?.slice(-8)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Network:</span>
+                    <span className="font-medium">
+                      {chainId === sepolia.id ? 'Sepolia Testnet' : `Chain ${chainId}`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Balance Status:</span>
+                    <Badge variant={hasBalance ? "default" : "destructive"} className={hasBalance ? "bg-green-100 text-green-800" : "text-white"}>
+                      {hasBalance ? "Sufficient" : "Insufficient"}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Additional Notes */}
+              <div className="space-y-3">
+                <Label htmlFor="notes" className="text-base font-medium">Additional Notes (Optional)</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Any additional information..."
+                  value={investmentData.notes}
+                  onChange={(e) => setInvestmentData(prev => ({ ...prev, notes: e.target.value }))}
+                  rows={3}
+                  className="resize-none"
+                />
               </div>
-              <h3 className="text-xl font-semibold">Processing Payment</h3>
-              <p className="text-gray-600">
-                Transferring {requiredAmount} {investmentData.cryptoToken} to token issuer
-              </p>
-              
-              {loading && (
-                <div className="flex items-center justify-center space-x-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Confirming transaction...</span>
-                </div>
-              )}
             </div>
           </div>
         );
@@ -665,10 +975,12 @@ const AdvancedInvestmentModal = ({
       case 1:
         return investmentData.cryptoToken;
       case 2:
-        return chainId === sepolia.id && hasBalance;
+        return contactEmail; // Email is required for order updates
       case 3:
-        return true;
+        return termsAccepted; // Terms must be accepted
       case 4:
+        return termsAccepted && chainId === sepolia.id ;
+      case 5:
         return !loading;
       default:
         return false;
@@ -696,23 +1008,58 @@ const AdvancedInvestmentModal = ({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Progress Steps */}
-        <div className="py-4">
-          <div className="flex items-center justify-between mb-4">
-            {steps.map((step, index) => (
-              <div key={index} className="flex flex-col items-center flex-1">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  index <= currentStep ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'
-                }`}>
-                  {index + 1}
+        {/* Enhanced Progress Steps */}
+        <div className="py-6">
+          <div className="flex items-center justify-between mb-6">
+            {steps.map((step, index) => {
+              const StepIcon = step.icon;
+              const isActive = index === currentStep;
+              const isCompleted = index < currentStep;
+              const isUpcoming = index > currentStep;
+              
+              return (
+                <div key={index} className="flex flex-col items-center flex-1 relative">
+                  {index < steps.length - 1 && (
+                    <div className={`absolute top-4 left-1/2 w-full h-0.5 -z-10 ${
+                      isCompleted ? 'bg-green-500' : isActive ? 'bg-blue-500' : 'bg-gray-200'
+                    }`} style={{ transform: 'translateX(50%)' }} />
+                  )}
+                  
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
+                    isCompleted 
+                      ? 'bg-green-500 text-white shadow-lg' 
+                      : isActive 
+                      ? 'bg-blue-600 text-white shadow-lg ring-4 ring-blue-200' 
+                      : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {isCompleted ? (
+                      <CheckCircle className="h-6 w-6" />
+                    ) : (
+                      <StepIcon className="h-6 w-6" />
+                    )}
+                  </div>
+                  
+                  <div className="text-center mt-3 max-w-24">
+                    <div className={`text-sm font-medium ${
+                      isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                    }`}>
+                      {step.title}
+                    </div>
+                    <div className={`text-xs mt-1 ${
+                      isActive ? 'text-blue-500' : isCompleted ? 'text-green-500' : 'text-gray-400'
+                    }`}>
+                      {step.description}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xs text-center mt-2 max-w-20">
-                  <div className="font-medium">{step.title}</div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-          <Progress value={(currentStep / (steps.length - 1)) * 100} className="w-full" />
+          <Progress value={(currentStep / (steps.length - 1)) * 100} className="w-full h-2" />
+          <div className="flex justify-between text-xs text-gray-500 mt-2">
+            <span>Step {currentStep + 1} of {steps.length}</span>
+            <span>{Math.round((currentStep / (steps.length - 1)) * 100)}% Complete</span>
+          </div>
         </div>
 
         <div className="min-h-[400px]">
@@ -735,28 +1082,33 @@ const AdvancedInvestmentModal = ({
             
             {currentStep === 4 ? (
               <Button 
+                onClick={handleCreateOrder}
+                disabled={creatingOrder || !termsAccepted }
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {creatingOrder ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Order...
+                  </>
+                ) : (
+                  'Create Order'
+                )}
+              </Button>
+            ) : currentStep === 5 ? (
+              <Button 
                 onClick={processPayment}
-                disabled={loading || !hasBalance}
+                disabled={loading || !createdOrderId}
                 className="bg-green-600 hover:bg-green-700"
               >
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
+                    Processing Payment...
                   </>
                 ) : (
                   'Confirm Payment'
                 )}
-              </Button>
-            ) : currentStep === 5 ? (
-              <Button 
-                onClick={() => {
-                  onOpenChange(false);
-                  setCurrentStep(0);
-                }}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                Done
               </Button>
             ) : (
               <Button 

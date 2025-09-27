@@ -85,7 +85,7 @@ export class TokenService {
     }
   }
 
-  // Get all tokens with filtering and pagination
+  // Get all tokens with filtering and pagination (using correct endpoint)
   async getAllTokens(params: {
     page?: number
     limit?: number
@@ -267,7 +267,7 @@ export class TokenService {
       formData.append('file', file)
       formData.append('documentType', documentType)
 
-      const response = await fetch(`${this.apiBaseUrl}/tokens/${tokenId}/documents`, {
+      const response = await fetch(`${this.apiBaseUrl}/token/${tokenId}/documents`, {
         method: 'POST',
         body: formData,
       })
@@ -286,7 +286,7 @@ export class TokenService {
 
   async getDocuments(tokenId: string): Promise<DocumentRequirement[]> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/tokens/${tokenId}/documents`)
+      const response = await fetch(`${this.apiBaseUrl}/token/${tokenId}/documents`)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -307,7 +307,7 @@ export class TokenService {
     reviewComments?: string
   ): Promise<DocumentRequirement> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/tokens/${tokenId}/documents/${documentId}/status`, {
+      const response = await fetch(`${this.apiBaseUrl}/token/${tokenId}/documents/${documentId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -330,7 +330,7 @@ export class TokenService {
   // Investor Management (placeholder for future implementation)
   async addInvestor(tokenId: string, investor: Partial<InvestorInformation>): Promise<InvestorInformation> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/tokens/${tokenId}/investors`, {
+      const response = await fetch(`${this.apiBaseUrl}/token/${tokenId}/investors`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -350,15 +350,23 @@ export class TokenService {
     }
   }
 
-  async getInvestors(tokenId: string): Promise<InvestorInformation[]> {
+  // Get investors using correct investor API endpoint
+  async getInvestors(tokenId?: string): Promise<InvestorInformation[]> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/tokens/${tokenId}/investors`)
+      // Use the investor API endpoint instead of token-specific endpoint
+      const response = await fetch(`${this.apiBaseUrl}/investors`)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
+      
+      // Return the investors data properly
+      if (data.success && data.data) {
+        return data.data
+      }
+      
       return data
     } catch (error) {
       console.error('Get investors error:', error)
@@ -373,7 +381,7 @@ export class TokenService {
     reason?: string
   ): Promise<InvestorInformation> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/tokens/${tokenId}/investors/${investorId}/status`, {
+      const response = await fetch(`${this.apiBaseUrl}/token/${tokenId}/investors/${investorId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -396,7 +404,7 @@ export class TokenService {
   // Transaction Management (placeholder for future implementation)
   async addTransaction(tokenId: string, transaction: Partial<TokenTransaction>): Promise<TokenTransaction> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/tokens/${tokenId}/transactions`, {
+      const response = await fetch(`${this.apiBaseUrl}/token/${tokenId}/transactions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -416,20 +424,38 @@ export class TokenService {
     }
   }
 
+  // Get transactions using correct investments API endpoint
   async getTransactions(tokenId: string, limit?: number, offset?: number): Promise<TokenTransaction[]> {
     try {
-      const params = new URLSearchParams()
-      if (limit) params.append('limit', limit.toString())
-      if (offset) params.append('offset', offset.toString())
-
-      const response = await fetch(`${this.apiBaseUrl}/tokens/${tokenId}/transactions?${params}`)
+      // Use SPV orders endpoint to get transactions for a token
+      const response = await fetch(`${this.apiBaseUrl}/investments/spv/${tokenId}/orders`)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
-      return data
+      
+      // Transform investment orders to transaction format
+      if (data.success && data.data?.orders) {
+        return data.data.orders.map((order: any) => ({
+          id: order._id || order.id,
+          type: 'investment',
+          tokenSymbol: order.token_symbol || 'Unknown',
+          amount: order.expected_token_amount || '0',
+          value: order.investment_amount?.toString() || '0',
+          currency: order.investment_currency || 'USD',
+          status: order.status === 'allocated' ? 'completed' : order.status === 'pending_payment' ? 'pending' : order.status,
+          date: order.created_at || new Date().toISOString(),
+          txHash: order.payment_tx_hash,
+          fromAddress: order.investor_wallet,
+          toAddress: order.delivery_address,
+          investorId: order.investor_wallet,
+          notes: order.notes || ''
+        }))
+      }
+      
+      return []
     } catch (error) {
       console.error('Get transactions error:', error)
       throw error
@@ -439,7 +465,7 @@ export class TokenService {
   // Account Management (placeholder for future implementation)
   async blacklistAccount(tokenId: string, address: string, reason: string): Promise<void> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/tokens/${tokenId}/accounts/blacklist`, {
+      const response = await fetch(`${this.apiBaseUrl}/token/${tokenId}/accounts/blacklist`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -458,7 +484,7 @@ export class TokenService {
 
   async whitelistAccount(tokenId: string, address: string, privileges: string[]): Promise<void> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/tokens/${tokenId}/accounts/whitelist`, {
+      const response = await fetch(`${this.apiBaseUrl}/token/${tokenId}/accounts/whitelist`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -477,7 +503,7 @@ export class TokenService {
 
   async freezeAccount(tokenId: string, address: string, reason: string): Promise<void> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/tokens/${tokenId}/accounts/freeze`, {
+      const response = await fetch(`${this.apiBaseUrl}/token/${tokenId}/accounts/freeze`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -497,7 +523,7 @@ export class TokenService {
   // Analytics and Reporting
   async generateComplianceReport(tokenId: string, reportType: string): Promise<Blob> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/tokens/${tokenId}/reports/${reportType}`)
+      const response = await fetch(`${this.apiBaseUrl}/token/${tokenId}/reports/${reportType}`)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -533,7 +559,7 @@ export class TokenService {
   // Marketplace Integration (placeholder for future implementation)
   async listTokenInMarketplace(tokenId: string): Promise<void> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/tokens/${tokenId}/marketplace/list`, {
+      const response = await fetch(`${this.apiBaseUrl}/token/${tokenId}/marketplace/list`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -551,7 +577,7 @@ export class TokenService {
 
   async delistTokenFromMarketplace(tokenId: string, reason: string): Promise<void> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/tokens/${tokenId}/marketplace/delist`, {
+      const response = await fetch(`${this.apiBaseUrl}/token/${tokenId}/marketplace/delist`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
